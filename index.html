@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f2eb"><meta name="description" content="تولیکا؛ مبلمان را پیش از انتخاب، در خانهٔ خود ببینید."><title>تولیکا — خانه، به سلیقهٔ تو</title><link rel="stylesheet" href="style.css?v=0.1.1"></head>
+<body>
+
+<header><a class="brand" href="#welcome" aria-label="خانه تولیکا">TOLICA</a><nav><a href="#spaces">چیدمان</a><a href="#gallery">گالری من <span id="galleryCount">۰</span></a></nav><button class="quiet" id="fullscreen">تمام‌صفحه ⛶</button></header>
+<main id="app"></main><div id="toast" role="status" aria-live="polite"></div>
+<div id="overlay" hidden><div class="ar-top"><button id="leaveAR">خروج از AR ×</button><span id="arStatus" role="status">گوشی را آرام به سمت کف حرکت بده</span></div><div class="ar-bottom"><p id="arHint">نشانگر را روی کف بگذار و «قرار دادن» را بزن.</p><div id="arObjects" class="chips"></div><div class="tools"><button id="place">قرار دادن چهار باکس</button><button id="moveAR">جابجایی به نشانگر</button><button id="rotateAR">چرخش ↻</button><button id="colorAR">تغییر رنگ</button><button id="addAR">افزودن +</button><button id="deleteAR">حذف</button><button id="photoAR">راهنمای عکس</button></div><small id="diagnostics">آزمون دستگاه: منتظر اولین فریم</small></div></div>
+<dialog id="photoHelp"><h2>یک قاب از خانه‌ات</h2><p>ثبت خودکار تصویر ترکیبی دوربین و اشیای WebXR در این نمونه پشتیبانی نمی‌شود. خروجی بوم سه‌بعدی تصویر دوربین را ندارد.</p><p>در حالت AR با دکمه‌های خود گوشی اسکرین‌شات بگیر؛ نتیجه به گوشی و مرورگر بستگی دارد. سپس از AR خارج شو و تصویر را در «گالری من» بارگذاری کن.</p><button id="closePhoto" class="primary">متوجه شدم</button></dialog>
+<dialog id="modeSheet"><button id="closeMode" class="sheet-close" aria-label="بستن">×</button><h2>چطور می‌خواهید ادامه دهید؟</h2><button class="mode-option" id="chooseAR"><span>واقعیت افزوده (AR)<small>قرار دادن باکس‌ها در فضای واقعی خانه</small></span><span class="mode-icon">♧</span></button><button class="mode-option" id="chooseSimple"><span>مدل ساده<small>بدون دوربین، روی پیش‌زمینهٔ ساده</small></span><span class="mode-icon">◇</span></button><p id="modeSupport">در حال بررسی سازگاری…</p></dialog>
+<script type="module" src="app.js"></script></body></html>
+
