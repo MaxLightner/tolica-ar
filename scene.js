@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import {requestARSession,xrError} from './xr.js?v=0.1.2';
 export const palette=['#b6bca2','#d5c4ad','#b9c4c6','#ba9380'];
 export class Studio {
  constructor(host,changed){
@@ -33,13 +34,14 @@ export class Studio {
  setRay(e){const r=this.host.getBoundingClientRect();this.pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);this.ray.setFromCamera(this.pointer,this.camera);}
  down(e){if(this.session)return;this.setRay(e);const hit=this.ray.intersectObjects(this.items,false)[0];if(hit){this.select(hit.object);this.dragging=true;const p=this.ray.ray.intersectPlane(this.floor,new THREE.Vector3());this.dragOffset=p?hit.object.position.clone().sub(p):new THREE.Vector3();this.host.setPointerCapture(e.pointerId);}else this.select(null);}
  drag(e){if(!this.dragging||!this.selected||this.session)return;this.setRay(e);const p=this.ray.ray.intersectPlane(this.floor,new THREE.Vector3());if(p){p.add(this.dragOffset);this.selected.position.x=THREE.MathUtils.clamp(p.x,-4,4);this.selected.position.z=THREE.MathUtils.clamp(p.z,-4,4);}}
- async startAR(status,report){
+ async startAR(status,report,basic=false){
   // requestSession must happen directly in the user's click handler.
-  const session=await navigator.xr.requestSession('immersive-ar',{requiredFeatures:['hit-test','dom-overlay'],optionalFeatures:['local-floor'],domOverlay:{root:document.querySelector('#overlay')}});
+  const session=await requestARSession(navigator.xr,document.querySelector('#overlay'),basic);
   this.session=session;this.onStatus=status;this.onReport=report;this.frames=0;this.lastReport=performance.now();this.lastTracking=null;this.placed=false;this.root.visible=false;this.grid.visible=false;this.scene.background=null;
   session.addEventListener('end',()=>{this.hitSource?.cancel();this.hitSource=null;this.session=null;this.root.visible=true;this.root.position.set(0,0,0);this.grid.visible=true;this.reticle.visible=false;this.scene.background=new THREE.Color('#eeeee3');this.camera.position.set(3.7,3.3,4.7);this.camera.lookAt(0,0,0);this.resize();document.querySelector('#overlay').hidden=true;status('جلسه پایان یافت');},{once:true});
-  try{await this.renderer.xr.setSession(session);const viewer=await session.requestReferenceSpace('viewer');this.hitSource=await session.requestHitTestSource({space:viewer});session.addEventListener('select',e=>this.selectAR(e));}
-  catch(e){await session.end();throw e;}
+  let stage='renderer';
+  try{await this.renderer.xr.setSession(session);stage='hit-test';const viewer=await session.requestReferenceSpace('viewer');this.hitSource=await session.requestHitTestSource({space:viewer});this.hasOverlay=!!session.domOverlayState;session.addEventListener('select',e=>{if(!this.hasOverlay&&!this.placed){this.place();return;}this.selectAR(e);});return {hasOverlay:this.hasOverlay};}
+  catch(e){try{await session.end();}catch{}throw xrError(e,stage);}
  }
  selectAR(event){if(!this.placed||this.moving)return;const pose=event.frame.getPose(event.inputSource.targetRaySpace,this.renderer.xr.getReferenceSpace());if(!pose)return;const mat=new THREE.Matrix4().fromArray(pose.transform.matrix);this.ray.ray.origin.setFromMatrixPosition(mat);this.ray.ray.direction.set(0,0,-1).transformDirection(mat);const hit=this.ray.intersectObjects(this.items,false)[0];if(hit)this.select(hit.object);}
  place(){if(!this.reticle.visible)return false;this.root.position.setFromMatrixPosition(this.reticle.matrix);this.root.visible=true;this.placed=true;this.onStatus('چهار باکس در یک جلسهٔ AR · یک باکس را انتخاب کن');return true;}
