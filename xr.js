@@ -6,7 +6,7 @@ export async function requestARSession(xr,root,basic=false,effects={}){
  if(!xr)throw xrError(new Error('navigator.xr is unavailable'),'availability');
  try{return await xr.requestSession('immersive-ar',{
   requiredFeatures:basic?['hit-test']:['hit-test','dom-overlay'],
-  optionalFeatures:[...(basic?['dom-overlay']:[]),'anchors',...(effects.light?['light-estimation']:[]),...(effects.depth?['depth-sensing']:[])],
+  optionalFeatures:[...(basic?['dom-overlay']:[]),'anchors','plane-detection',...(effects.light?['light-estimation']:[]),...(effects.depth?['depth-sensing']:[])],
   ...(effects.depth?{depthSensing:{usagePreference:['gpu-optimized'],dataFormatPreference:['float32','luminance-alpha']}}:{}),domOverlay:{root}
  });}catch(error){throw xrError(error,'request-session');}
 }
