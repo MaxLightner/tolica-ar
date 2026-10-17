@@ -1,19 +1,20 @@
 import * as THREE from './vendor/three.module.js';
-import {requestARSession,xrError} from './xr.js?v=0.2.0';
-import {SpatialState,CATALOG,pairAngle,wrappedAngle} from './spatial.js?v=0.2.0';
-import {FloorScanner} from './surfaces.js?v=0.2.0';
-import {EnvironmentEffects} from './effects.js?v=0.2.0';
+import {requestARSession,xrError} from './xr.js?v=0.2.1';
+import {SpatialState,CATALOG,pairAngle,wrappedAngle} from './spatial.js?v=0.2.1';
+import {FloorScanner,floorCandidates} from './surfaces.js?v=0.2.1';
+import {EnvironmentEffects} from './effects.js?v=0.2.1';
+import {AnchorStabilizer,transformPoint} from './anchor-rig.js?v=0.2.1';
 export const palette=['#b6bca2','#d5c4ad','#b9c4c6','#ba9380'];
 const fa=n=>n.toLocaleString('fa-IR',{maximumFractionDigits:1});
 export class Studio{
  constructor(host,changed){
   Object.assign(this,{host,changed,items:[],serial:0,selected:null,session:null,photoMode:false,tracking:true,anchor:null,anchorGeneration:0,anchorPending:false,anchorState:'بدون Anchor',lastStatus:'',lastReport:0,frames:0,fps:0,points:new Map(),gesture:null,needsAnchor:false});
-  this.model=new SpatialState();this.scanner=new FloorScanner();this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#eeeee3');
+  this.model=new SpatialState();this.scanner=new FloorScanner();this.anchorRig=new AnchorStabilizer();this.anchorNodes=[];this.anchorCandidates=[];this.anchorActive=false;this.anchorLastTime=0;this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#eeeee3');
   this.camera=new THREE.PerspectiveCamera(48,1,.03,40);this.camera.position.set(5.2,4.4,6);this.camera.lookAt(.6,0,-.5);
   this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));this.renderer.xr.enabled=true;this.renderer.xr.setReferenceSpaceType('local');host.prepend(this.renderer.domElement);
   this.effects=new EnvironmentEffects(this.scene,this.renderer);
   this.floorFrame=new THREE.Group();this.scene.add(this.floorFrame);this.root=new THREE.Group();this.floorFrame.add(this.root);
-  this.floorNet=new THREE.GridHelper(12,48,0xcdb99f,0xd8c7b2);this.floorNet.material.transparent=true;this.floorNet.material.opacity=.13;this.floorNet.material.depthWrite=false;this.floorNet.position.y=.003;this.floorFrame.add(this.floorNet);
+  this.floorNet=new THREE.GridHelper(12,48,0xcdb99f,0xd8c7b2);this.floorNet.material.transparent=true;this.floorNet.material.opacity=.5;this.floorNet.material.depthWrite=false;this.floorNet.position.y=.003;this.floorFrame.add(this.floorNet);
   this.ruler=new THREE.Group();this.floorFrame.add(this.ruler);
   this.rulerLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(1,0,0)]),new THREE.LineBasicMaterial({color:0x9b5b32,depthTest:false}));this.rulerLine.renderOrder=5;this.ruler.add(this.rulerLine);
   this.handleA=this.makeHandle('A',0xc47642);this.handleB=this.makeHandle('B',0x5a8a84);this.ruler.add(this.handleA,this.handleB);this.rulerLabel=this.makeLabel('A — B');this.ruler.add(this.rulerLabel);
@@ -44,7 +45,7 @@ export class Studio{
  color(color){if(this.selected){this.selected.material.color.set(color);this.changed();}}
  calibrate(cm){this.model.calibrate(Number(cm)/100);this.syncSpatial();this.changed();return this.measurement();}
  resetCalibration(){this.model.resetCalibration();this.syncSpatial();this.changed();}
- setHeight(cm){this.model.setHeight(Number(cm)/100);this.syncSpatial();this.changed();}
+ setHeight(){throw Error('ارتفاع کف فقط از شناسایی واقعی تعیین می‌شود.');}
  measurement(){return {measuredCm:this.model.length*100,correctedCm:this.model.length/this.model.correction*100,scale:this.model.correction,actualCm:this.model.actualLength===null?null:this.model.actualLength*100,heightCm:this.model.heightOffset*100};}
  exportState(){return {spatial:this.model.snapshot(),items:this.items.map(m=>({index:m.userData.index,id:m.userData.id,position:m.position.toArray(),rotation:m.rotation.y,color:'#'+m.material.color.getHexString()}))};}
  restoreState(state){this.model.restore(state.spatial);for(const x of state.items){const mesh=this.add(x.index);mesh.userData.id=x.id;mesh.position.fromArray(x.position);mesh.position.y=mesh.userData.height/2;mesh.rotation.y=x.rotation;mesh.material.color.set(x.color);}this.serial=Math.max(0,...state.items.map(x=>x.id));this.syncSpatial();this.select(this.items[0]||null);}
@@ -60,7 +61,7 @@ export class Studio{
    this.setRay(e,target);const hit=this.ray.intersectObjects(this.items,false)[0];if(!hit){this.select(null);this.gesture=null;return;}this.select(hit.object);this.gesture={kind:'object',offset:hit.object.position.clone().sub(this.rootLocal(p))};
   }else if(this.points.size===2&&this.selected&&this.gesture?.kind==='object'){this.startTwist(target);}
  }
- twistAngle(target){const [a,b]=[...this.points.values()];if(!a||!b)return null;const pa=this.pointOnFloor(a,target),pb=this.pointOnFloor(b,target);if(!pa||!pb||pa.distanceTo(pb)<.04)return null;return pairAngle(pa,pb);}
+ twistAngle(target){const [a,b]=[...this.points.values()];if(!a||!b)return null;const dx=b.clientX-a.clientX,dy=b.clientY-a.clientY;if(Math.hypot(dx,dy)<.5)return null;return Math.atan2(-dy,dx);}
  startTwist(target){const angle=this.twistAngle(target);if(angle!==null)this.gesture={kind:'twist',start:angle,rotation:this.selected.rotation.y};}
  drag(e,target){if(!this.points.has(e.pointerId)||this.photoMode||(this.session&&!this.tracking))return;e.preventDefault();this.points.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});const g=this.gesture;if(!g)return;
   if(this.points.size===2&&this.selected){if(g.kind!=='twist'){this.startTwist(target);return;}const angle=this.twistAngle(target);if(angle!==null)this.selected.rotation.y=g.rotation+wrappedAngle(angle-g.start);return;}
@@ -74,21 +75,65 @@ export class Studio{
  setGuides(){const show=!this.photoMode;this.floorNet.visible=show&&(this.model.locked||this.scanner.ready);this.ruler.visible=show&&this.model.locked;for(const m of this.items){m.userData.edges.visible=show;m.userData.label.visible=show;}}
  setPhotoMode(enabled){this.cancelGesture();this.photoMode=enabled;this.setGuides();this.changed();}
  status(message){if(this.lastStatus!==message){this.lastStatus=message;this.onStatus?.(message);}}
- dropAnchor(){this.anchorGeneration++;try{this.anchor?.delete();}catch{}this.anchor=null;this.anchorPending=false;this.anchorState='مختصات ثابت';}
+ dropAnchor(){this.anchorGeneration++;for(const item of this.anchorNodes)try{item.anchor.delete();}catch{}this.anchorNodes=[];this.anchorCandidates=[];this.anchorActive=false;this.anchorRig=new AnchorStabilizer();this.needsAnchor=false;this.anchorPending=false;this.anchorState='مختصات ثابت';}
  async startAR(status,report,basic=false,options={}){
-  const session=await requestARSession(navigator.xr,document.querySelector('#overlay'),basic,options);this.session=session;this.onStatus=status;this.onReport=report;this.tracking=false;this.frames=0;this.fps=0;this.lastReport=performance.now();this.lastReportState='';this.lastStatus='';this.model.locked=false;this.model.heightOffset=0;this.model.resetCalibration();this.syncSpatial();this.scanner.reset();this.root.visible=false;this.floorNet.visible=false;this.ruler.visible=false;this.scene.background=null;this.status('کف را اسکن کن؛ دوربین را آرام رو به پایین حرکت بده.');
+  const session=await requestARSession(navigator.xr,document.querySelector('#overlay'),basic,options);this.session=session;this.onStatus=status;this.onReport=report;this.tracking=false;this.frames=0;this.fps=0;this.lastReport=performance.now();this.lastReportState='';this.lastStatus='';this.model.locked=false;this.model.heightOffset=0;this.model.resetCalibration();this.anchorRig=new AnchorStabilizer();this.syncSpatial();this.scanner.reset();this.root.visible=false;this.floorNet.visible=false;this.ruler.visible=false;this.scene.background=null;this.status('کف را اسکن کن؛ دوربین را آرام رو به پایین حرکت بده.');
   session.addEventListener('end',()=>this.endSession(),{once:true});let stage='renderer';
   try{await this.renderer.xr.setSession(session);stage='hit-test';await this.beginScan();this.hasOverlay=!!session.domOverlayState;this.effects.start(session,options);session.addEventListener('select',e=>{if(this.hasOverlay||!this.tracking||this.photoMode)return;if(!this.placed&&this.scanner.ready)this.confirmFloor();else this.selectAR(e);});return {hasOverlay:this.hasOverlay};}
   catch(error){try{await session.end();}catch{}throw xrError(error,stage);}
  }
  async beginScan(){const session=this.session;if(!session)return;this.dropAnchor();const generation=this.anchorGeneration;this.hitSource?.cancel();this.hitSource=null;this.model.locked=false;this.scanner.reset();this.root.visible=false;this.ruler.visible=false;this.floorNet.visible=false;this.cancelGesture();this.status('کف را پیدا کن؛ سطح پایین‌تر معمولاً کف است. سپس «تثبیت کف» را بزن.');const viewer=await session.requestReferenceSpace('viewer');const source=await session.requestHitTestSource({space:viewer});if(this.session!==session||this.anchorGeneration!==generation){source.cancel();return;}this.hitSource=source;}
- confirmFloor(){if(this.model.locked||!this.scanner.ready||!this.scanner.point)return false;this.model.lock(this.scanner.point);this.model.heightOffset=0;this.syncSpatial();this.root.visible=true;this.setGuides();this.needsAnchor=true;this.hitSource?.cancel();this.hitSource=null;this.status('کف ثابت شد. A و B را روی مرجع معلوم بگذار؛ سپس طول واقعی را وارد کن.');this.changed();return true;}
- updateAnchor(frame,space){
-  if(this.anchor){let pose;try{pose=frame.getPose(this.anchor.anchorSpace,space);}catch{}if(pose){const matrix=new THREE.Matrix4().fromArray(pose.transform.matrix),axis=new THREE.Vector3(1,0,0).transformDirection(matrix);this.model.setAnchorTranslation(new THREE.Vector3().setFromMatrixPosition(matrix),Math.atan2(-axis.z,axis.x));this.syncSpatial();this.anchorState='فعال';}else this.anchorState='آخرین موقعیت Anchor';}
-  if(this.needsAnchor&&!this.anchorPending){this.needsAnchor=false;if(!frame.createAnchor||!globalThis.XRRigidTransform){this.anchorState='مختصات ثابت (بدون Anchor)';return;}
-   this.anchorPending=true;const generation=this.anchorGeneration,session=this.session,p=this.model.origin;this.anchorState='در حال اتصال';
-   try{frame.createAnchor(new XRRigidTransform({x:p.x,y:p.y,z:p.z}),space).then(anchor=>{if(this.anchorGeneration!==generation||this.session!==session){anchor.delete();return;}this.anchor=anchor;this.anchorPending=false;this.anchorState='فعال';},()=>{if(this.anchorGeneration===generation){this.anchorPending=false;this.anchorState='مختصات ثابت (fallback)';}});}catch{this.anchorPending=false;this.anchorState='مختصات ثابت (fallback)';}
+ confirmFloor(){if(this.model.locked||!this.scanner.ready||!this.scanner.point)return false;this.model.lock(this.scanner.point);this.model.heightOffset=0;this.syncSpatial();this.root.visible=true;this.setGuides();this.needsAnchor=true;this.initialFloorOrigin=this.model.origin.toArray();this.anchorCandidates=[...this.scanner.observations];this.anchorCandidates.unshift(this.scanner.point.clone());this.status('کف ثابت شد. A و B را روی مرجع معلوم بگذار؛ سپس طول واقعی را وارد کن.');this.changed();return true;}
+ updateAnchor(frame,space,time){
+  if(this.needsAnchor){
+   this.needsAnchor=false;
+   if(frame.createAnchor&&globalThis.XRRigidTransform)this.anchorActive=true;
+   else{this.anchorState='مختصات ثابت (بدون Anchors API)';this.hitSource?.cancel();this.hitSource=null;}
   }
+  if(this.anchorActive&&this.hitSource&&this.anchorNodes.length+Number(this.anchorPending)<5){
+   const results=frame.getHitTestResults(this.hitSource);
+   const viewerPose=frame.getViewerPose(space);
+   const viewer=viewerPose?.transform.position;
+   const candidates=floorCandidates(results,space,viewer?new THREE.Vector3(viewer.x,viewer.y,viewer.z):null);
+   for(const c of candidates){
+    if(Math.abs(c.point.y-this.initialFloorOrigin[1])>.055)continue;
+    if(this.anchorCandidates.every(p=>p.distanceTo(c.point)>.42))this.anchorCandidates.push(c.point.clone());
+   }
+  }
+  if(this.anchorActive&&!this.anchorPending&&this.anchorNodes.length<5){
+   const next=this.anchorCandidates.find(p=>this.anchorNodes.every(item=>item.requested.distanceTo(p)>.42));
+   if(next){
+    const generation=this.anchorGeneration,session=this.session;
+    this.anchorPending=true;
+    try{
+     Promise.resolve(frame.createAnchor(new XRRigidTransform({x:next.x,y:next.y,z:next.z}),space)).then(anchor=>{
+      if(this.anchorGeneration!==generation||this.session!==session){anchor.delete();return;}
+      this.anchorNodes.push({anchor,requested:next.clone(),reference:null,id:this.anchorNodes.length+1});
+      this.anchorPending=false;
+     },()=>{if(this.anchorGeneration===generation){this.anchorPending=false;this.anchorCandidates=this.anchorCandidates.filter(p=>p!==next);}});
+    }catch{this.anchorPending=false;this.anchorCandidates=this.anchorCandidates.filter(p=>p!==next);}
+   }
+  }
+  const samples=[];
+  for(const item of this.anchorNodes){
+   let pose;try{pose=frame.getPose(item.anchor.anchorSpace,space);}catch{}
+   if(!pose)continue;
+   const pos=pose.transform.position,point=[pos.x,pos.y,pos.z];
+   if(!item.reference)item.reference=[...point];
+   samples.push({id:item.id,reference:item.reference,observed:point});
+  }
+  if(samples.length>=3){
+   const elapsed=this.anchorLastTime?Math.max(.001,(time-this.anchorLastTime)/1000):.016;
+   this.anchorLastTime=time;
+   const state=this.anchorRig.update(samples,elapsed);
+   if(state.status!=='insufficient'){
+    const point=transformPoint(this.initialFloorOrigin,state.pose);
+    this.model.setAnchorTranslation(new THREE.Vector3(...point),state.pose.yaw);
+    this.syncSpatial();
+   }
+   this.anchorState=`${state.inliers.length}/${this.anchorNodes.length} نقاط · ${state.status}`;
+  }else this.anchorState=`${this.anchorNodes.length}/۵ نقطه · آماده‌سازی`;
+  if(this.anchorNodes.length>=5){this.hitSource?.cancel();this.hitSource=null;}
  }
  selectAR(event){if(!this.model.locked)return;const pose=event.frame.getPose(event.inputSource.targetRaySpace,this.renderer.xr.getReferenceSpace());if(!pose)return;const matrix=new THREE.Matrix4().fromArray(pose.transform.matrix);this.ray.ray.origin.setFromMatrixPosition(matrix);this.ray.ray.direction.set(0,0,-1).transformDirection(matrix);this.floorFrame.updateMatrixWorld(true);const hit=this.ray.intersectObjects(this.items,false)[0];if(hit)this.select(hit.object);}
  endSession(){try{this.hitSource?.cancel();}catch{}this.hitSource=null;this.dropAnchor();this.needsAnchor=false;this.session=null;this.model.origin.set(0,0,0);this.model.anchorYaw=0;this.model.heightOffset=0;this.model.locked=true;this.tracking=true;this.root.visible=true;this.photoMode=false;this.syncSpatial();this.setGuides();this.effects.reset();this.scene.background=new THREE.Color('#eeeee3');this.camera.position.set(5.2,4.4,6);this.camera.lookAt(.6,0,-.5);this.cancelGesture();this.resize();document.querySelector('#overlay').hidden=true;this.onEnd?.();this.changed();}
@@ -96,7 +141,7 @@ export class Studio{
   if(frame&&this.session){const space=this.renderer.xr.getReferenceSpace(),pose=frame.getViewerPose(space);this.tracking=!!pose;
    if(!pose){this.cancelGesture();this.status('ردیابی قطع شد؛ چیدمان جابجا نمی‌شود. دوربین را آرام به محیط برگردان.');}
    else if(!this.model.locked&&this.hitSource){const viewer=new THREE.Vector3(pose.transform.position.x,pose.transform.position.y,pose.transform.position.z);const point=this.scanner.update(frame.getHitTestResults(this.hitSource),space,viewer,time);if(point){this.floorFrame.position.copy(point);this.floorFrame.rotation.set(0,0,0);this.root.visible=this.scanner.ready;this.floorNet.visible=!this.photoMode;this.ruler.visible=false;this.status(this.scanner.ready?'کف پیشنهادی پیدا شد؛ اگر درست است «تثبیت کف» را بزن.':'سطح پیدا شد؛ دوربین را چند لحظه آرام نگه دار.');if(!this.hasOverlay&&this.scanner.ready)this.confirmFloor();}else{this.root.visible=false;this.floorNet.visible=false;this.status('در حال شناسایی کف… نور کافی و سطح بافت‌دار کمک می‌کند.');}}
-   else if(this.model.locked){this.updateAnchor(frame,space);if(!this.photoMode)this.status('A: انتقال ست · B: جهت ست · یک انگشت: حرکت · دو انگشت: چرخش');}
+   else if(this.model.locked){this.updateAnchor(frame,space,time);if(!this.photoMode)this.status('A: انتقال ست · B: جهت ست · یک انگشت: حرکت · دو انگشت: چرخش');}
    this.effects.update(frame,time,this.fps);this.frames++;if(time-this.lastReport>=750){this.fps=Math.round(this.frames*1000/(time-this.lastReport));this.frames=0;this.lastReport=time;}
    const report={fps:this.fps,objects:this.items.length,visible:this.root.visible&&pose?this.items.length:0,placed:this.model.locked,hit:this.scanner.ready,tracking:!!pose,anchor:this.anchorState,light:this.effects.lightState,depth:this.effects.depthState,photo:this.photoMode,...this.measurement()};const state=JSON.stringify(report);if(state!==this.lastReportState){this.onReport?.(report);this.lastReportState=state;}
   }

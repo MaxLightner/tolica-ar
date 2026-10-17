@@ -12,11 +12,28 @@ export function floorCandidates(results,space,viewerPosition=null){
 export function horizontalHit(results,space){return floorCandidates(results,space)[0]?.matrix||null;}
 export class FloorScanner{
  constructor(){this.reset();}
- reset(){this.point=null;this.firstTime=null;this.samples=0;this.candidate=null;this.ready=false;}
+ reset(){this.point=null;this.firstTime=null;this.samples=0;this.candidate=null;this.ready=false;this.height=null;this.lastSeen=0;this.observations=[];}
  update(results,space,viewer,time){
-  const candidate=floorCandidates(results,space,viewer)[0];if(!candidate){this.reset();return null;}
-  if(!this.point||Math.abs(candidate.point.y-this.point.y)>.035||candidate.point.distanceTo(this.point)>.2){this.firstTime=time;this.samples=0;this.point=candidate.point.clone();}
-  else this.point.lerp(candidate.point,.15);
-  this.samples++;this.candidate=candidate;this.ready=this.samples>=8&&time-this.firstTime>=350;return this.point.clone();
+  const found=floorCandidates(results,space,viewer);
+  if(!found.length){
+   if(time-this.lastSeen>700){this.samples=0;this.ready=false;}
+   return this.point?.clone()||null;
+  }
+  const candidate=found[0],point=candidate.point;
+  // Compare plane elevation, not ray hit position: the ray naturally sweeps over the floor.
+  if(this.height===null||Math.abs(point.y-this.height)>.07){
+   this.height=point.y;this.firstTime=time;this.samples=0;this.observations=[];
+  }else this.height=this.height*.8+point.y*.2;
+  this.samples++;this.lastSeen=time;this.candidate=candidate;
+  this.point=new THREE.Vector3(point.x,this.height,point.z);
+  for(const item of found){
+   if(Math.abs(item.point.y-this.height)>.06)continue;
+   if(this.observations.every(prev=>prev.distanceTo(item.point)>.42)){
+    this.observations.push(item.point.clone());
+    if(this.observations.length>12)this.observations.shift();
+   }
+  }
+  this.ready=this.samples>=3&&time-this.firstTime>=120;
+  return this.point.clone();
  }
 }

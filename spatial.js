@@ -17,10 +17,10 @@ export class SpatialState{
  setAnchorTranslation(point,yaw=this.anchorYaw){if(this.locked){this.origin.copy(point);if(Number.isFinite(yaw))this.anchorYaw=yaw;}}
  setHeight(meters){if(!Number.isFinite(meters)||Math.abs(meters)>2)throw Error('اصلاح ارتفاع باید بین ۲۰۰− و ۲۰۰ سانتی‌متر باشد.');this.heightOffset=meters;}
  moveA(point){const delta=point.clone().sub(this.a);delta.y=0;this.a.add(delta);this.b.add(delta);}
- moveB(point){const next=point.clone();next.y=0;if(next.distanceTo(this.a)<.1)return false;this.b.copy(next);return true;}
- calibrate(actualMeters){if(!Number.isFinite(actualMeters)||actualMeters<.1||actualMeters>20)throw Error('طول واقعی را بین ۱۰ و ۲۰۰۰ سانتی‌متر وارد کن.');
+ moveB(point){const next=point.clone();next.y=0;if(next.distanceTo(this.a)<1||next.distanceTo(this.a)>10)return false;this.b.copy(next);return true;}
+ calibrate(actualMeters){if(!Number.isFinite(actualMeters)||actualMeters<1||actualMeters>10)throw Error('طول واقعی را بین ۱۰۰ و ۱۰۰۰ سانتی‌متر وارد کن.');
   // If XR reports m units for a real r-meter span, a nominal P-meter product needs P*m/r XR units.
-  const scale=this.length/actualMeters;if(scale<.25||scale>4)throw Error('ضریب غیرعادی است؛ ابتدا نقطه‌های A و B را دقیق روی مرجع بگذار.');this.correction=scale;this.actualLength=actualMeters;return scale;
+  const scale=this.length/actualMeters;if(!Number.isFinite(scale)||scale<=0)throw Error('ضریب اندازه معتبر نیست.');this.correction=scale;this.actualLength=actualMeters;return scale;
  }
  resetCalibration(){this.correction=1;this.actualLength=null;}
  apply(floorFrame,layout){floorFrame.position.copy(this.origin);floorFrame.position.y+=this.heightOffset;floorFrame.rotation.set(0,this.anchorYaw,0);layout.position.copy(this.a);layout.rotation.set(0,this.yaw,0);layout.scale.setScalar(this.correction);floorFrame.updateMatrixWorld(true);}
