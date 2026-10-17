@@ -1,9 +1,9 @@
 import * as THREE from './vendor/three.module.js';
-import {requestARSession,xrError} from './xr.js?v=0.2.2';
-import {SpatialState,CATALOG,pairAngle,wrappedAngle} from './spatial.js?v=0.2.2';
-import {FloorScanner,floorCandidates} from './surfaces.js?v=0.2.2';
-import {EnvironmentEffects} from './effects.js?v=0.2.2';
-import {AnchorStabilizer,transformPoint} from './anchor-rig.js?v=0.2.2';
+import {requestARSession,xrError} from './xr.js?v=0.2.3';
+import {SpatialState,CATALOG,pairAngle,wrappedAngle} from './spatial.js?v=0.2.3';
+import {FloorScanner,floorCandidates} from './surfaces.js?v=0.2.3';
+import {EnvironmentEffects} from './effects.js?v=0.2.3';
+import {AnchorStabilizer,transformPoint} from './anchor-rig.js?v=0.2.3';
 export const palette=['#b6bca2','#d5c4ad','#b9c4c6','#ba9380'];
 const fa=n=>n.toLocaleString('fa-IR',{maximumFractionDigits:1});
 export class Studio{
