@@ -14,7 +14,32 @@ export class Studio{
   this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));this.renderer.xr.enabled=true;this.renderer.xr.setReferenceSpaceType('local');host.prepend(this.renderer.domElement);
   this.effects=new EnvironmentEffects(this.scene,this.renderer);
   this.floorFrame=new THREE.Group();this.scene.add(this.floorFrame);this.root=new THREE.Group();this.floorFrame.add(this.root);
-  this.floorNet=new THREE.GridHelper(12,48,0xcdb99f,0xd8c7b2);this.floorNet.material.transparent=true;this.floorNet.material.opacity=.5;this.floorNet.material.depthWrite=false;this.floorNet.position.y=.003;this.floorFrame.add(this.floorNet);
+  // WebGL lineWidth is usually fixed on mobile: a shader gives a visible, soft grid.
+   this.floorNet=new THREE.Mesh(
+    new THREE.PlaneGeometry(12,12),
+    new THREE.ShaderMaterial({
+     transparent:true,depthWrite:false,side:THREE.DoubleSide,
+     extensions:{derivatives:true},
+     uniforms:{opacity:{value:.85}},
+     vertexShader:`varying vec2 gridUv;void main(){gridUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+     fragmentShader:`precision highp float;
+varying vec2 gridUv;
+uniform float opacity;
+void main(){
+ vec2 cells=gridUv*24.0;
+ vec2 dx=max(fwidth(cells),vec2(0.0001));
+ vec2 line=abs(fract(cells+0.5)-0.5)/dx;
+ float px=min(line.x,line.y);
+ float core=1.0-smoothstep(0.7,1.65,px);
+ float glow=1.0-smoothstep(1.2,5.2,px);
+ float alpha=clamp((0.72*core+0.32*glow)*opacity,0.0,0.85);
+ gl_FragColor=vec4(mix(vec3(0.20,0.57,0.52),vec3(0.55,0.97,0.83),core),alpha);
+}`
+    })
+   );
+   this.floorNet.rotation.x=-Math.PI/2;
+   this.floorNet.position.y=.004;
+   this.floorFrame.add(this.floorNet);
   this.ruler=new THREE.Group();this.floorFrame.add(this.ruler);
   this.rulerLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(1,0,0)]),new THREE.LineBasicMaterial({color:0x9b5b32,depthTest:false}));this.rulerLine.renderOrder=5;this.ruler.add(this.rulerLine);
   this.handleA=this.makeHandle('A',0xc47642);this.handleB=this.makeHandle('B',0x5a8a84);this.ruler.add(this.handleA,this.handleB);this.rulerLabel=this.makeLabel('A — B');this.ruler.add(this.rulerLabel);
@@ -26,7 +51,7 @@ export class Studio{
  resize(){if(this.session)return;const w=this.host.clientWidth,h=this.host.clientHeight;this.camera.aspect=w/Math.max(h,1);this.camera.updateProjectionMatrix();this.renderer.setSize(w,h);}
  makeLabel(text){const canvas=document.createElement('canvas');let context=canvas.getContext('2d');context.font='42px Tahoma, sans-serif';canvas.width=Math.ceil(Math.max(90,context.measureText(text).width+44));canvas.height=100;context=canvas.getContext('2d');context.fillStyle='#fff9e9ee';context.beginPath();context.roundRect(2,2,canvas.width-4,96,16);context.fill();context.font='42px Tahoma, sans-serif';context.textAlign='center';context.textBaseline='middle';context.fillStyle='#423c31';context.fillText(text,canvas.width/2,50);const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false}));sprite.scale.set(canvas.width/500,.2,1);sprite.renderOrder=8;sprite.userData.text=text;return sprite;}
  setLabel(sprite,text){if(sprite.userData.text===text)return;const previous=sprite.material.map;const replacement=this.makeLabel(text);sprite.material.map=replacement.material.map;sprite.material.needsUpdate=true;sprite.userData.text=text;previous.dispose();replacement.material.dispose();}
- makeHandle(name,color){const mesh=new THREE.Mesh(new THREE.SphereGeometry(.075,18,12),new THREE.MeshBasicMaterial({color,depthTest:false}));mesh.renderOrder=6;mesh.userData.handle=name;const label=this.makeLabel(name);label.scale.set(.27,.085,1);label.position.y=.15;mesh.add(label);return mesh;}
+ makeHandle(name,color){const mesh=new THREE.Mesh(new THREE.SphereGeometry(.035,18,12),new THREE.MeshBasicMaterial({color,depthTest:false}));mesh.renderOrder=6;mesh.userData.handle=name;const label=this.makeLabel(name);label.scale.set(.27,.085,1);label.position.y=.15;mesh.add(label);return mesh;}
  syncSpatial(){this.model.apply(this.floorFrame,this.root);this.handleA.position.copy(this.model.a);this.handleA.position.y=.04;this.handleB.position.copy(this.model.b);this.handleB.position.y=.04;
   const positions=this.rulerLine.geometry.attributes.position;positions.setXYZ(0,this.model.a.x,.025,this.model.a.z);positions.setXYZ(1,this.model.b.x,.025,this.model.b.z);positions.needsUpdate=true;this.rulerLine.geometry.computeBoundingSphere();
   this.rulerLabel.position.copy(this.model.a).lerp(this.model.b,.5);this.rulerLabel.position.y=.15;this.setLabel(this.rulerLabel,`${fa(this.model.length/this.model.correction*100)} cm · A—B`);this.floorFrame.updateMatrixWorld(true);
@@ -41,7 +66,7 @@ export class Studio{
  remove(){const m=this.selected;if(!m)return;this.items=this.items.filter(x=>x!==m);this.root.remove(m);this.disposeObject(m);this.select(this.items[0]||null);}
  clear(){for(const m of this.items){this.root.remove(m);this.disposeObject(m);}this.items=[];this.selected=null;this.serial=0;this.changed();}
  disposeObject(object){object.traverse(o=>{o.geometry?.dispose();if(o.material){o.material.map?.dispose();o.material.dispose();}});}
- rotate(degrees){if(!this.selected)return;this.selected.rotation.y=degrees===undefined?this.selected.rotation.y+Math.PI/12:degrees*Math.PI/180;this.changed();}
+ rotate(degrees){if(!this.selected)return;this.selected.rotation.y=degrees===undefined?this.selected.rotation.y+Math.PI/12:degrees*Math.PI/180;this.keepOnFloor(this.selected);this.changed();}
  color(color){if(this.selected){this.selected.material.color.set(color);this.changed();}}
  calibrate(cm){this.model.calibrate(Number(cm)/100);this.syncSpatial();this.changed();return this.measurement();}
  resetCalibration(){this.model.resetCalibration();this.syncSpatial();this.changed();}
@@ -55,6 +80,7 @@ export class Studio{
  pointOnFloor(e,target){this.setRay(e,target);return this.ray.ray.intersectPlane(this.model.plane,new THREE.Vector3());}
  floorLocal(point){return this.floorFrame.worldToLocal(point.clone());}
  rootLocal(point){return this.root.worldToLocal(point.clone());}
+ keepOnFloor(mesh){if(mesh)mesh.position.y=mesh.userData.height/2;}
  hitHandle(e,target){const bounds=target.getBoundingClientRect();let best=null,distance=36;for(const h of [this.handleA,this.handleB]){const p=h.getWorldPosition(new THREE.Vector3()).project(this.activeCamera());if(p.z>1||p.z< -1)continue;const d=Math.hypot((p.x+1)*bounds.width/2+bounds.left-e.clientX,(1-p.y)*bounds.height/2+bounds.top-e.clientY);if(d<distance){distance=d;best=h.userData.handle;}}return best;}
  down(e,target){if(this.photoMode){this.onPhotoTap?.();return;}if(!this.model.locked||(this.session&&!this.tracking)||this.points.size>=2||(this.points.size===1&&['A','B'].includes(this.gesture?.kind)))return;e.preventDefault();target.setPointerCapture(e.pointerId);this.points.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});
   if(this.points.size===1){const p=this.pointOnFloor(e,target);if(!p){this.cancelGesture();return;}const handle=this.hitHandle(e,target);if(handle){this.gesture={kind:handle,offset:this.model[handle.toLowerCase()].clone().sub(this.floorLocal(p))};return;}
@@ -64,9 +90,9 @@ export class Studio{
  twistAngle(target){const [a,b]=[...this.points.values()];if(!a||!b)return null;const dx=b.clientX-a.clientX,dy=b.clientY-a.clientY;if(Math.hypot(dx,dy)<.5)return null;return Math.atan2(-dy,dx);}
  startTwist(target){const angle=this.twistAngle(target);if(angle!==null)this.gesture={kind:'twist',start:angle,rotation:this.selected.rotation.y};}
  drag(e,target){if(!this.points.has(e.pointerId)||this.photoMode||(this.session&&!this.tracking))return;e.preventDefault();this.points.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});const g=this.gesture;if(!g)return;
-  if(this.points.size===2&&this.selected){if(g.kind!=='twist'){this.startTwist(target);return;}const angle=this.twistAngle(target);if(angle!==null)this.selected.rotation.y=g.rotation+wrappedAngle(angle-g.start);return;}
+  if(this.points.size===2&&this.selected){if(g.kind!=='twist'){this.startTwist(target);return;}const angle=this.twistAngle(target);if(angle!==null)this.selected.rotation.y=g.rotation+wrappedAngle(angle-g.start);this.keepOnFloor(this.selected);return;}
   if(this.points.size!==1||g.kind==='twist')return;const p=this.pointOnFloor(e,target);if(!p)return;
-  if(g.kind==='object'&&this.selected){const local=this.rootLocal(p).add(g.offset);this.selected.position.x=local.x;this.selected.position.z=local.z;}
+  if(g.kind==='object'&&this.selected){const local=this.rootLocal(p).add(g.offset);this.selected.position.x=local.x;this.selected.position.z=local.z;this.keepOnFloor(this.selected);}
   else if(g.kind==='A'){this.model.moveA(this.floorLocal(p).add(g.offset));this.syncSpatial();}
   else if(g.kind==='B'){this.model.moveB(this.floorLocal(p).add(g.offset));this.syncSpatial();}
  }
