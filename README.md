@@ -56,3 +56,7 @@
 ## آزمون کد
 
 `node --test tests/*.test.mjs` — بدون نصب وابستگی. Three.js 0.180.0 با مجوز MIT در `vendor/THREE-LICENSE.txt`. فایل‌های همین شاخه مستقیماً توسط GitHub Pages منتشر می‌شوند.
+
+### 0.2.7 — Low-poly furniture
+Procedural sofas and armchairs now have separate seats, backs, arms and four wooden legs. The table has a chamfered top and four legs. Sofa: 660 triangles; chair: 388; table: 116. No external model downloads or textures. Catalog dimensions, floor contact, upholstery color, calibration and touch controls are preserved. Tests cover physical bounds and selection through child meshes. Android AR rendering needs a device check.
+

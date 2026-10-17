@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import {createFurniture,furnitureHit} from './furniture.js?v=0.2.7';
 import {requestARSession,xrError} from './xr.js?v=0.2.4';
 import {SpatialState,CATALOG,pairAngle,wrappedAngle} from './spatial.js?v=0.2.4';
 import {FloorScanner,floorCandidates} from './surfaces.js?v=0.2.4';
@@ -74,10 +75,10 @@ void main(){
   const mid=this.model.a.clone().add(this.model.b).multiplyScalar(.5);this.rulerLine.position.set(mid.x,.036,mid.z);this.rulerLine.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),this.model.b.clone().sub(this.model.a).normalize());this.rulerLine.scale.set(1,this.model.length,1);
   this.rulerLabel.position.copy(this.model.a).lerp(this.model.b,.5);this.rulerLabel.position.y=.15;this.setLabel(this.rulerLabel,`${fa(this.model.length/this.model.correction*100)} cm · A—B`);this.floorFrame.updateMatrixWorld(true);
  }
- add(index=this.serial%4,position){index=index%4;const product=CATALOG[index],id=++this.serial,[w,h,d]=product.size;const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color:palette[index],roughness:.88}));
+ add(index=this.serial%4,position){index=index%4;const product=CATALOG[index],id=++this.serial,[w,h,d]=product.size;const mesh=createFurniture(index,product.size,palette[index]);
   const edges=new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry),new THREE.LineBasicMaterial({color:0x645748,transparent:true,opacity:.7}));mesh.add(edges);
   const dimensions=`${product.name} · ${product.size.map(v=>fa(v*100)).join(' × ')} cm`;const label=this.makeLabel(dimensions);label.position.y=h/2+.18;label.scale.set(1.5,.22,1);mesh.add(label);
-  mesh.userData={id,index,height:h,price:product.price,product,edges,label};const defaults=[[0,h/2,-2.1],[2,h/2,-2.1],[.6,h/2,-.9],[2,h/2,-.6]];mesh.position.fromArray(defaults[index]);if(position)mesh.position.copy(position);mesh.position.y=h/2;this.root.add(mesh);this.items.push(mesh);this.select(mesh);this.setGuides();return mesh;
+  mesh.userData={...mesh.userData,id,index,height:h,price:product.price,product,edges,label};const defaults=[[0,h/2,-2.1],[2,h/2,-2.1],[.6,h/2,-.9],[2,h/2,-.6]];mesh.position.fromArray(defaults[index]);if(position)mesh.position.copy(position);mesh.position.y=h/2;this.root.add(mesh);this.items.push(mesh);this.select(mesh);this.setGuides();return mesh;
  }
  seed(kind='calm'){this.clear();if(kind==='empty')return;for(let i=0;i<4;i++)this.add(i);if(kind==='social'){this.items[3].position.set(-1.8,this.items[3].userData.height/2,.2);this.items[3].rotation.y=-Math.PI/3;}this.select(this.items[0]);}
  select(mesh){this.selected=mesh;for(const m of this.items)m.userData.edges.material.color.set(m===mesh?'#c3753c':'#645748');this.changed();}
@@ -102,7 +103,7 @@ void main(){
  hitHandle(e,target){const bounds=target.getBoundingClientRect();let best=null,distance=36;for(const h of [this.handleA,this.handleB]){const p=h.getWorldPosition(new THREE.Vector3()).project(this.activeCamera());if(p.z>1||p.z< -1)continue;const d=Math.hypot((p.x+1)*bounds.width/2+bounds.left-e.clientX,(1-p.y)*bounds.height/2+bounds.top-e.clientY);if(d<distance){distance=d;best=h.userData.handle;}}return best;}
  down(e,target){if(this.photoMode){this.onPhotoTap?.();return;}if(!this.model.locked||(this.session&&!this.tracking)||this.points.size>=2||(this.points.size===1&&['A','B'].includes(this.gesture?.kind)))return;e.preventDefault();target.setPointerCapture(e.pointerId);this.points.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});
   if(this.points.size===1){const p=this.pointOnFloor(e,target);if(!p){this.cancelGesture();return;}const handle=this.hitHandle(e,target);if(handle){this.gesture={kind:handle,offset:this.model[handle.toLowerCase()].clone().sub(this.floorLocal(p))};return;}
-   this.setRay(e,target);const hit=this.ray.intersectObjects(this.items,false)[0];if(!hit){this.select(null);this.gesture=null;return;}this.select(hit.object);this.gesture={kind:'object',offset:hit.object.position.clone().sub(this.rootLocal(p))};
+   this.setRay(e,target);const hit=furnitureHit(this.ray,this.items);if(!hit){this.select(null);this.gesture=null;return;}this.select(hit.object);this.gesture={kind:'object',offset:hit.object.position.clone().sub(this.rootLocal(p))};
   }else if(this.points.size===2&&this.selected&&this.gesture?.kind==='object'){this.startTwist(target);}
  }
  twistAngle(target){const [a,b]=[...this.points.values()];if(!a||!b)return null;const dx=b.clientX-a.clientX,dy=b.clientY-a.clientY;if(Math.hypot(dx,dy)<.5)return null;return Math.atan2(-dy,dx);}
@@ -194,7 +195,7 @@ void main(){
   }else this.anchorState=`${this.anchorNodes.length}/۵ نقطه · آماده‌سازی`;
   if(this.anchorNodes.length>=5){this.hitSource?.cancel();this.hitSource=null;}
  }
- selectAR(event){if(!this.model.locked)return;const pose=event.frame.getPose(event.inputSource.targetRaySpace,this.renderer.xr.getReferenceSpace());if(!pose)return;const matrix=new THREE.Matrix4().fromArray(pose.transform.matrix);this.ray.ray.origin.setFromMatrixPosition(matrix);this.ray.ray.direction.set(0,0,-1).transformDirection(matrix);this.floorFrame.updateMatrixWorld(true);const hit=this.ray.intersectObjects(this.items,false)[0];if(hit)this.select(hit.object);}
+ selectAR(event){if(!this.model.locked)return;const pose=event.frame.getPose(event.inputSource.targetRaySpace,this.renderer.xr.getReferenceSpace());if(!pose)return;const matrix=new THREE.Matrix4().fromArray(pose.transform.matrix);this.ray.ray.origin.setFromMatrixPosition(matrix);this.ray.ray.direction.set(0,0,-1).transformDirection(matrix);this.floorFrame.updateMatrixWorld(true);const hit=furnitureHit(this.ray,this.items);if(hit)this.select(hit.object);}
  endSession(){try{this.hitSource?.cancel();}catch{}for(const s of this.extraHitSources)try{s.cancel();}catch{}this.extraHitSources=[];this.hitSource=null;this.debugView.note('AR session ended');this.dropAnchor();this.needsAnchor=false;this.session=null;this.model.origin.set(0,0,0);this.model.anchorYaw=0;this.model.heightOffset=0;this.model.locked=true;this.tracking=true;this.root.visible=true;this.photoMode=false;this.scanMarkers.visible=false;this.syncSpatial();this.setGuides();this.effects.reset();this.scene.background=new THREE.Color('#eeeee3');this.camera.position.set(5.2,4.4,6);this.camera.lookAt(.6,0,-.5);this.cancelGesture();this.resize();document.querySelector('#overlay').hidden=true;this.onEnd?.();this.changed();}
  frame(time,frame){
   if(frame&&this.session){const space=this.renderer.xr.getReferenceSpace(),pose=frame.getViewerPose(space);this.tracking=!!pose;
