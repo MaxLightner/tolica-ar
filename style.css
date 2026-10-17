@@ -40,3 +40,5 @@
 #overlay .ar-bottom #selectedARTools{display:flex;gap:5px}
 #overlay .ar-bottom #arEditControls .tools{gap:5px}
 #overlay .ar-bottom button,#overlay .ar-bottom select{min-height:38px}
+
+.quick-ar{margin-top:10px;width:100%;background:#f5ede6e6;border:1px solid #af9f90;color:#3d3934;font-size:12px;min-height:44px}
