@@ -1,30 +1,32 @@
 import * as THREE from './vendor/three.module.js';
-import {requestARSession,xrError} from './xr.js?v=0.2.2';
-import {SpatialState,CATALOG,pairAngle,wrappedAngle} from './spatial.js?v=0.2.2';
-import {FloorScanner,floorCandidates} from './surfaces.js?v=0.2.2';
-import {EnvironmentEffects} from './effects.js?v=0.2.2';
-import {AnchorStabilizer,transformPoint} from './anchor-rig.js?v=0.2.2';
+import {requestARSession,xrError} from './xr.js?v=0.2.3';
+import {SpatialState,CATALOG,pairAngle,wrappedAngle} from './spatial.js?v=0.2.3';
+import {FloorScanner,floorCandidates} from './surfaces.js?v=0.2.3';
+import {EnvironmentEffects} from './effects.js?v=0.2.3';
+import {AnchorStabilizer,transformPoint} from './anchor-rig.js?v=0.2.3';
 export const palette=['#b6bca2','#d5c4ad','#b9c4c6','#ba9380'];
 const fa=n=>n.toLocaleString('fa-IR',{maximumFractionDigits:1});
 export class Studio{
  constructor(host,changed){
   Object.assign(this,{host,changed,items:[],serial:0,selected:null,session:null,photoMode:false,tracking:true,anchor:null,anchorGeneration:0,anchorPending:false,anchorState:'بدون Anchor',lastStatus:'',lastReport:0,frames:0,fps:0,points:new Map(),gesture:null,needsAnchor:false});
-  this.model=new SpatialState();this.scanner=new FloorScanner();this.anchorRig=new AnchorStabilizer();this.anchorNodes=[];this.anchorCandidates=[];this.anchorActive=false;this.anchorLastTime=0;this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#eeeee3');
+  this.model=new SpatialState();this.scanner=new FloorScanner();this.anchorRig=new AnchorStabilizer();this.anchorNodes=[];this.anchorCandidates=[];this.anchorActive=false;this.anchorLastTime=0;this.extraHitSources=[];this.scanHits=0;this.scanDrop=null;this.scanDistance=null;this.revealStart=null;this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#eeeee3');
   this.camera=new THREE.PerspectiveCamera(48,1,.03,40);this.camera.position.set(5.2,4.4,6);this.camera.lookAt(.6,0,-.5);
   this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));this.renderer.xr.enabled=true;this.renderer.xr.setReferenceSpaceType('local');host.prepend(this.renderer.domElement);
   this.effects=new EnvironmentEffects(this.scene,this.renderer);
   this.floorFrame=new THREE.Group();this.scene.add(this.floorFrame);this.root=new THREE.Group();this.floorFrame.add(this.root);
   // WebGL lineWidth is usually fixed on mobile: a shader gives a visible, soft grid.
    this.floorNet=new THREE.Mesh(
-    new THREE.PlaneGeometry(12,12),
+    new THREE.PlaneGeometry(6,6),
     new THREE.ShaderMaterial({
      transparent:true,depthWrite:false,side:THREE.DoubleSide,
      extensions:{derivatives:true},
-     uniforms:{opacity:{value:.85}},
+     uniforms:{opacity:{value:.85},reveal:{value:1},pulse:{value:0}},
      vertexShader:`varying vec2 gridUv;void main(){gridUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
      fragmentShader:`precision highp float;
 varying vec2 gridUv;
 uniform float opacity;
+uniform float reveal;
+uniform float pulse;
 void main(){
  vec2 cells=gridUv*24.0;
  vec2 dx=max(fwidth(cells),vec2(0.0001));
@@ -32,14 +34,27 @@ void main(){
  float px=min(line.x,line.y);
  float core=1.0-smoothstep(0.7,1.65,px);
  float glow=1.0-smoothstep(1.2,5.2,px);
- float alpha=clamp((0.72*core+0.32*glow)*opacity,0.0,0.85);
- gl_FragColor=vec4(mix(vec3(0.20,0.57,0.52),vec3(0.55,0.97,0.83),core),alpha);
+ float radius=length((gridUv-0.5)*6.0);
+ float edge=1.0-smoothstep(reveal-0.06,reveal+0.06,radius);
+ float rim=(1.0-smoothstep(0.025,0.11,abs(radius-reveal)))*(1.0-step(2.95,reveal));
+ float alpha=clamp((0.72*core+0.32*glow)*opacity*edge+rim*0.65*pulse,0.0,0.95);
+ gl_FragColor=vec4(mix(vec3(0.20,0.57,0.52),vec3(0.55,0.97,0.83),max(core,rim)),alpha);
 }`
     })
    );
    this.floorNet.rotation.x=-Math.PI/2;
    this.floorNet.position.y=.004;
    this.floorFrame.add(this.floorNet);
+   // Crosses represent sampled WebXR hits, NOT ARCore's raw feature point cloud.
+   this.scanMarkers=new THREE.Group();this.scene.add(this.scanMarkers);
+   const crossGeometry=new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-.016,0,-.016),new THREE.Vector3(.016,0,.016),
+    new THREE.Vector3(-.016,0,.016),new THREE.Vector3(.016,0,-.016)
+   ]);
+   this.scanCrosses=Array.from({length:20},()=>{
+    const marker=new THREE.LineSegments(crossGeometry,new THREE.LineBasicMaterial({color:0x83ffe3,transparent:true,opacity:.94,depthTest:false}));
+    marker.renderOrder=10;marker.visible=false;this.scanMarkers.add(marker);return marker;
+   });
   this.ruler=new THREE.Group();this.floorFrame.add(this.ruler);
   this.rulerLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(1,0,0)]),new THREE.LineBasicMaterial({color:0x9b5b32,depthTest:false}));this.rulerLine.renderOrder=5;this.ruler.add(this.rulerLine);
   this.handleA=this.makeHandle('A',0xc47642);this.handleB=this.makeHandle('B',0x5a8a84);this.ruler.add(this.handleA,this.handleB);this.rulerLabel=this.makeLabel('A — B');this.ruler.add(this.rulerLabel);
@@ -103,13 +118,28 @@ void main(){
  status(message){if(this.lastStatus!==message){this.lastStatus=message;this.onStatus?.(message);}}
  dropAnchor(){this.anchorGeneration++;for(const item of this.anchorNodes)try{item.anchor.delete();}catch{}this.anchorNodes=[];this.anchorCandidates=[];this.anchorActive=false;this.anchorRig=new AnchorStabilizer();this.needsAnchor=false;this.anchorPending=false;this.anchorState='مختصات ثابت';}
  async startAR(status,report,basic=false,options={}){
-  const session=await requestARSession(navigator.xr,document.querySelector('#overlay'),basic,options);this.session=session;this.onStatus=status;this.onReport=report;this.tracking=false;this.frames=0;this.fps=0;this.lastReport=performance.now();this.lastReportState='';this.lastStatus='';this.model.locked=false;this.model.heightOffset=0;this.model.resetCalibration();this.anchorRig=new AnchorStabilizer();this.syncSpatial();this.scanner.reset();this.root.visible=false;this.floorNet.visible=false;this.ruler.visible=false;this.scene.background=null;this.status('کف را اسکن کن؛ دوربین را آرام رو به پایین حرکت بده.');
+  const session=await requestARSession(navigator.xr,document.querySelector('#overlay'),basic,options);this.session=session;this.onStatus=status;this.onReport=report;this.tracking=false;this.frames=0;this.fps=0;this.lastReport=performance.now();this.lastReportState='';this.lastStatus='';this.model.locked=false;this.model.heightOffset=0;this.model.resetCalibration();this.anchorRig=new AnchorStabilizer();this.scanMarkers.visible=true;this.scanHits=0;this.scanDrop=null;this.scanDistance=null;this.floorNet.material.uniforms.opacity.value=.85;this.syncSpatial();this.scanner.reset();this.root.visible=false;this.floorNet.visible=false;this.ruler.visible=false;this.scene.background=null;this.status('کف را اسکن کن؛ دوربین را آرام رو به پایین حرکت بده.');
   session.addEventListener('end',()=>this.endSession(),{once:true});let stage='renderer';
   try{await this.renderer.xr.setSession(session);stage='hit-test';await this.beginScan();this.hasOverlay=!!session.domOverlayState;this.effects.start(session,options);session.addEventListener('select',e=>{if(this.hasOverlay||!this.tracking||this.photoMode)return;if(!this.placed&&this.scanner.ready)this.confirmFloor();else this.selectAR(e);});return {hasOverlay:this.hasOverlay};}
   catch(error){try{await session.end();}catch{}throw xrError(error,stage);}
  }
- async beginScan(){const session=this.session;if(!session)return;this.dropAnchor();const generation=this.anchorGeneration;this.hitSource?.cancel();this.hitSource=null;this.model.locked=false;this.scanner.reset();this.root.visible=false;this.ruler.visible=false;this.floorNet.visible=false;this.cancelGesture();this.status('کف را پیدا کن؛ سطح پایین‌تر معمولاً کف است. سپس «تثبیت کف» را بزن.');const viewer=await session.requestReferenceSpace('viewer');const source=await session.requestHitTestSource({space:viewer});if(this.session!==session||this.anchorGeneration!==generation){source.cancel();return;}this.hitSource=source;}
- confirmFloor(){if(this.model.locked||!this.scanner.ready||!this.scanner.point)return false;this.model.lock(this.scanner.point);this.model.heightOffset=0;this.syncSpatial();this.root.visible=true;this.setGuides();this.needsAnchor=true;this.initialFloorOrigin=this.model.origin.toArray();this.anchorCandidates=[...this.scanner.observations];this.anchorCandidates.unshift(this.scanner.point.clone());this.status('کف ثابت شد. A و B را روی مرجع معلوم بگذار؛ سپس طول واقعی را وارد کن.');this.changed();return true;}
+ async beginScan(){const session=this.session;if(!session)return;this.dropAnchor();const generation=this.anchorGeneration;this.hitSource?.cancel();this.hitSource=null;for(const s of this.extraHitSources)s.cancel();this.extraHitSources=[];this.revealStart=null;this.scanMarkers.visible=true;this.floorNet.material.uniforms.reveal.value=.65;this.floorNet.material.uniforms.pulse.value=1;this.model.locked=false;this.scanner.reset();this.root.visible=false;this.ruler.visible=false;this.floorNet.visible=false;this.floorNet.material.uniforms.opacity.value=.85;this.cancelGesture();this.status('کف را پیدا کن؛ سطح پایین‌تر معمولاً کف است. سپس «تثبیت کف» را بزن.');const viewer=await session.requestReferenceSpace('viewer');const source=await session.requestHitTestSource({space:viewer,entityTypes:['plane']});if(this.session!==session||this.anchorGeneration!==generation){source.cancel();return;}this.hitSource=source;
+  // Request auxiliary directions around the center; unsupported devices retain the central reticle.
+  if(globalThis.XRRigidTransform){
+   const offsets=[[-.09,0],[.09,0],[0,-.09],[0,.09],[-.075,-.075],[.075,-.075],[-.075,.075],[.075,.075]];
+   for(const [x,y] of offsets){
+    try{
+     const direction=new THREE.Vector3(x,y,-1).normalize();
+     const rotation=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,-1),direction);
+     const transformed=await session.requestReferenceSpace('viewer');
+     const raySpace=transformed.getOffsetReferenceSpace(new XRRigidTransform({}, {x:rotation.x,y:rotation.y,z:rotation.z,w:rotation.w}));
+     const hit=await session.requestHitTestSource({space:raySpace,entityTypes:['plane']});
+     if(this.session!==session||this.anchorGeneration!==generation){hit.cancel();break;}
+     this.extraHitSources.push(hit);
+    }catch(error){console.debug('Auxiliary WebXR hit test unavailable',error?.name||error);break;}
+   }
+  }}
+ confirmFloor(){if(this.model.locked||!this.scanner.ready||!this.scanner.point)return false;this.model.lock(this.scanner.point);this.model.heightOffset=0;this.syncSpatial();this.root.visible=false;this.revealStart=performance.now();this.scanMarkers.visible=false;this.setGuides();this.needsAnchor=true;this.initialFloorOrigin=this.model.origin.toArray();this.anchorCandidates=[...this.scanner.observations];this.anchorCandidates.unshift(this.scanner.point.clone());this.status('کف ثابت شد. A و B را روی مرجع معلوم بگذار؛ سپس طول واقعی را وارد کن.');this.changed();return true;}
  updateAnchor(frame,space,time){
   if(this.needsAnchor){
    this.needsAnchor=false;
@@ -162,14 +192,49 @@ void main(){
   if(this.anchorNodes.length>=5){this.hitSource?.cancel();this.hitSource=null;}
  }
  selectAR(event){if(!this.model.locked)return;const pose=event.frame.getPose(event.inputSource.targetRaySpace,this.renderer.xr.getReferenceSpace());if(!pose)return;const matrix=new THREE.Matrix4().fromArray(pose.transform.matrix);this.ray.ray.origin.setFromMatrixPosition(matrix);this.ray.ray.direction.set(0,0,-1).transformDirection(matrix);this.floorFrame.updateMatrixWorld(true);const hit=this.ray.intersectObjects(this.items,false)[0];if(hit)this.select(hit.object);}
- endSession(){try{this.hitSource?.cancel();}catch{}this.hitSource=null;this.dropAnchor();this.needsAnchor=false;this.session=null;this.model.origin.set(0,0,0);this.model.anchorYaw=0;this.model.heightOffset=0;this.model.locked=true;this.tracking=true;this.root.visible=true;this.photoMode=false;this.syncSpatial();this.setGuides();this.effects.reset();this.scene.background=new THREE.Color('#eeeee3');this.camera.position.set(5.2,4.4,6);this.camera.lookAt(.6,0,-.5);this.cancelGesture();this.resize();document.querySelector('#overlay').hidden=true;this.onEnd?.();this.changed();}
+ endSession(){try{this.hitSource?.cancel();}catch{}for(const s of this.extraHitSources)try{s.cancel();}catch{}this.extraHitSources=[];this.hitSource=null;this.dropAnchor();this.needsAnchor=false;this.session=null;this.model.origin.set(0,0,0);this.model.anchorYaw=0;this.model.heightOffset=0;this.model.locked=true;this.tracking=true;this.root.visible=true;this.photoMode=false;this.syncSpatial();this.setGuides();this.effects.reset();this.scene.background=new THREE.Color('#eeeee3');this.camera.position.set(5.2,4.4,6);this.camera.lookAt(.6,0,-.5);this.cancelGesture();this.resize();document.querySelector('#overlay').hidden=true;this.onEnd?.();this.changed();}
  frame(time,frame){
   if(frame&&this.session){const space=this.renderer.xr.getReferenceSpace(),pose=frame.getViewerPose(space);this.tracking=!!pose;
    if(!pose){this.cancelGesture();this.status('ردیابی قطع شد؛ چیدمان جابجا نمی‌شود. دوربین را آرام به محیط برگردان.');}
-   else if(!this.model.locked&&this.hitSource){const viewer=new THREE.Vector3(pose.transform.position.x,pose.transform.position.y,pose.transform.position.z);const point=this.scanner.update(frame.getHitTestResults(this.hitSource),space,viewer,time);if(point){this.floorFrame.position.copy(point);this.floorFrame.rotation.set(0,0,0);this.root.visible=this.scanner.ready;this.floorNet.visible=!this.photoMode;this.ruler.visible=false;this.status(this.scanner.ready?'کف پیشنهادی پیدا شد؛ اگر درست است «تثبیت کف» را بزن.':'سطح پیدا شد؛ دوربین را چند لحظه آرام نگه دار.');if(!this.hasOverlay&&this.scanner.ready)this.confirmFloor();}else{this.root.visible=false;this.floorNet.visible=false;this.status('در حال شناسایی کف… نور کافی و سطح بافت‌دار کمک می‌کند.');}}
-   else if(this.model.locked){this.updateAnchor(frame,space,time);if(!this.photoMode)this.status('A: انتقال ست · B: جهت ست · یک انگشت: حرکت · دو انگشت: چرخش');}
+   else if(!this.model.locked&&this.hitSource){const viewer=new THREE.Vector3(pose.transform.position.x,pose.transform.position.y,pose.transform.position.z);const centralResults=frame.getHitTestResults(this.hitSource);
+     const point=this.scanner.update(centralResults,space,viewer,time);
+     const samples=[...floorCandidates(centralResults,space,viewer)];
+     for(const hitSource of this.extraHitSources){
+      try{samples.push(...floorCandidates(frame.getHitTestResults(hitSource),space,viewer));}catch{}
+     }
+     this.scanHits=samples.length;
+     this.scanCrosses.forEach((marker,i)=>{
+      const c=samples[i];marker.visible=!!c;
+      if(c){marker.position.copy(c.point);marker.position.y+=.009;marker.rotation.y=i*1.4;}
+     });
+     if(point){
+      this.scanDrop=viewer.y-point.y;this.scanDistance=viewer.distanceTo(point);
+      this.floorFrame.position.copy(point);this.floorFrame.rotation.set(0,0,0);
+      const dist=viewer.distanceTo(point);
+      const camera=this.activeCamera();const fov=camera.isPerspectiveCamera?camera.fov:48;
+      const radius=THREE.MathUtils.clamp(dist*Math.tan(THREE.MathUtils.degToRad(fov/2))/3,.28,.95);
+      this.floorNet.material.uniforms.reveal.value=radius;
+      this.floorNet.material.uniforms.pulse.value=1;
+      this.root.visible=false;this.floorNet.visible=!this.photoMode;this.ruler.visible=false;
+      this.status('دایره را روی کف قرار بده و «تثبیت این کف» را بزن.');
+      if(!this.hasOverlay)this.confirmFloor();
+     }else{
+      this.scanDrop=null;this.scanDistance=null;this.root.visible=false;this.floorNet.visible=false;
+      this.status('سطحی در مرکز دید پیدا نشد؛ گوشی را آرام حرکت بده.');
+     }}
+   else if(this.model.locked){
+     if(this.revealStart!==null){
+      const t=Math.min(1,(performance.now()-this.revealStart)/750);
+      const eased=1-Math.pow(1-t,3);
+      this.floorNet.material.uniforms.reveal.value=.65+3.6*eased;
+      this.floorNet.material.uniforms.pulse.value=1-eased;
+      this.floorNet.material.uniforms.opacity.value=.85-.46*eased;
+      this.root.visible=t>.68;
+      if(t>=1)this.revealStart=null;
+     }
+     this.updateAnchor(frame,space,time);if(!this.photoMode)this.status('A: انتقال ست · B: جهت ست · یک انگشت: حرکت · دو انگشت: چرخش');}
    this.effects.update(frame,time,this.fps);this.frames++;if(time-this.lastReport>=750){this.fps=Math.round(this.frames*1000/(time-this.lastReport));this.frames=0;this.lastReport=time;}
-   const report={fps:this.fps,objects:this.items.length,visible:this.root.visible&&pose?this.items.length:0,placed:this.model.locked,hit:this.scanner.ready,tracking:!!pose,anchor:this.anchorState,light:this.effects.lightState,depth:this.effects.depthState,photo:this.photoMode,...this.measurement()};const state=JSON.stringify(report);if(state!==this.lastReportState){this.onReport?.(report);this.lastReportState=state;}
+   const report={fps:this.fps,objects:this.items.length,visible:this.root.visible&&pose?this.items.length:0,placed:this.model.locked,hit:this.scanner.ready,scanHits:this.scanHits,scanDrop:this.scanDrop,scanDistance:this.scanDistance,tracking:!!pose,anchor:this.anchorState,light:this.effects.lightState,depth:this.effects.depthState,photo:this.photoMode,...this.measurement()};const state=JSON.stringify(report);if(state!==this.lastReportState){this.onReport?.(report);this.lastReportState=state;}
   }
   this.scaleLabels();this.renderer.render(this.scene,this.camera);
  }
@@ -180,7 +245,7 @@ void main(){
   }
  }
  async snapshot(){if(this.session)throw Error('در AR از اسکرین‌شات گوشی استفاده کن.');const before=this.photoMode;this.setPhotoMode(true);this.renderer.render(this.scene,this.camera);try{return await new Promise((resolve,reject)=>this.renderer.domElement.toBlob(blob=>blob?resolve(blob):reject(Error('ثبت نشد')),'image/png'));}finally{this.setPhotoMode(before);}}
- destroy(){this.resizeObserver.disconnect();this.events.abort();this.renderer.setAnimationLoop(null);this.dropAnchor();this.clear();this.disposeObject(this.ruler);this.floorNet.geometry.dispose();this.floorNet.material.dispose();this.renderer.dispose();this.renderer.domElement.remove();}
+ destroy(){this.resizeObserver.disconnect();this.events.abort();this.renderer.setAnimationLoop(null);this.dropAnchor();this.clear();this.disposeObject(this.ruler);this.scanCrosses[0]?.geometry.dispose();for(const m of this.scanCrosses)m.material.dispose();this.floorNet.geometry.dispose();this.floorNet.material.dispose();this.renderer.dispose();this.renderer.domElement.remove();}
 }
 
 
