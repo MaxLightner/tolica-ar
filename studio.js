@@ -62,7 +62,7 @@ export class Studio{
    this.setRay(e,target);const hit=this.ray.intersectObjects(this.items,false)[0];if(!hit){this.select(null);this.gesture=null;return;}this.select(hit.object);this.gesture={kind:'object',offset:hit.object.position.clone().sub(this.rootLocal(p))};
   }else if(this.points.size===2&&this.selected&&this.gesture?.kind==='object'){this.startTwist(target);}
  }
- twistAngle(target){const [a,b]=[...this.points.values()];if(!a||!b)return null;const pa=this.pointOnFloor(a,target),pb=this.pointOnFloor(b,target);if(!pa||!pb||pa.distanceTo(pb)<.04)return null;return pairAngle(pa,pb);}
+ twistAngle(target){const [a,b]=[...this.points.values()];if(!a||!b)return null;const dx=b.clientX-a.clientX,dy=b.clientY-a.clientY;if(Math.hypot(dx,dy)<.5)return null;return Math.atan2(-dy,dx);}
  startTwist(target){const angle=this.twistAngle(target);if(angle!==null)this.gesture={kind:'twist',start:angle,rotation:this.selected.rotation.y};}
  drag(e,target){if(!this.points.has(e.pointerId)||this.photoMode||(this.session&&!this.tracking))return;e.preventDefault();this.points.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});const g=this.gesture;if(!g)return;
   if(this.points.size===2&&this.selected){if(g.kind!=='twist'){this.startTwist(target);return;}const angle=this.twistAngle(target);if(angle!==null)this.selected.rotation.y=g.rotation+wrappedAngle(angle-g.start);return;}
