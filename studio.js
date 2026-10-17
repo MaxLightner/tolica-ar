@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
-import {requestARSession,xrError} from './xr.js?v=0.2.0';
-import {SpatialState,CATALOG,pairAngle,wrappedAngle} from './spatial.js?v=0.2.0';
-import {FloorScanner} from './surfaces.js?v=0.2.0';
-import {EnvironmentEffects} from './effects.js?v=0.2.0';
+import {requestARSession,xrError} from './xr.js?v=0.2.1';
+import {SpatialState,CATALOG,pairAngle,wrappedAngle} from './spatial.js?v=0.2.1';
+import {FloorScanner} from './surfaces.js?v=0.2.1';
+import {EnvironmentEffects} from './effects.js?v=0.2.1';
 import {AnchorStabilizer,transformPoint} from './anchor-rig.js?v=0.2.1';
-import {floorCandidates} from './surfaces.js?v=0.2.0';
+import {floorCandidates} from './surfaces.js?v=0.2.1';
 export const palette=['#b6bca2','#d5c4ad','#b9c4c6','#ba9380'];
 const fa=n=>n.toLocaleString('fa-IR',{maximumFractionDigits:1});
 export class Studio{
