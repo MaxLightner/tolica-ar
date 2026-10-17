@@ -8,7 +8,7 @@ export const CATALOG=Object.freeze([
 export const wrappedAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
 export function pairAngle(a,b){return Math.atan2(-(b.z-a.z),b.x-a.x);}
 export class SpatialState{
- constructor(){this.origin=new THREE.Vector3();this.anchorYaw=0;this.heightOffset=0;this.locked=true;this.a=new THREE.Vector3(0,0,.7);this.b=new THREE.Vector3(1,0,.7);this.correction=1;this.actualLength=null;}
+ constructor(){this.origin=new THREE.Vector3();this.anchorYaw=0;this.heightOffset=0;this.locked=true;this.a=new THREE.Vector3(0,0,.7);this.b=new THREE.Vector3(4,0,.7);this.correction=1;this.actualLength=null;}
  get length(){return this.a.distanceTo(this.b);}
  get yaw(){return pairAngle(this.a,this.b);}
  get height(){return this.origin.y+this.heightOffset;}
