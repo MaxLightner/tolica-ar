@@ -84,13 +84,13 @@ void main(){
  add(index=this.serial%4,position){index=((index%CATALOG.length)+CATALOG.length)%CATALOG.length;const product=CATALOG[index],id=++this.serial,[w,h,d]=product.size;const color=palette[index]||'#c6b7a3';const mesh=index<4?createFurniture(index,product.size,color):createDecor(index,product.size,color);
   const edges=new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry),new THREE.LineBasicMaterial({color:0x645748,transparent:true,opacity:.7}));mesh.add(edges);
   const dimensions=`${product.name} · ${product.size.map(v=>fa(v*100)).join(' × ')} cm`;const label=this.makeLabel(dimensions);label.position.y=h/2+.18;label.scale.set(1.5,.22,1);mesh.add(label);
-  mesh.userData={...mesh.userData,id,index,height:h,price:product.price,product,edges,label};const defaults=[[0,h/2,-2.1],[2,h/2,-2.1],[.6,h/2,-.9],[2,h/2,-.6],[.3,h/2,-.75],[.3,h/2,-2.1],[2,h/2,-.65],[.9,h/2,-1.5]];
+  mesh.userData={...mesh.userData,id,index,height:h,price:product.price,product,edges,label};const defaults=[[0,h/2,-2.1],[2,h/2,-2.1],[.6,h/2,-.9],[2,h/2,-.6],[.3,h/2,-.75],[.3,h/2,-2.1],[2,h/2,-.65],[.9,h/2,-1.5],[.5,h/2,-1.8],[.5,h/2,-1.8],[.5,h/2,-1.7],[.5,h/2,-1.2]];
   mesh.position.fromArray(defaults[index]);if(position)mesh.position.copy(position);mesh.position.y=h/2;
   // Transparent radial contact shadow: darkens the camera floor, not a black disc.
   if(index!==7&&index!==5)this.addContactShadow(mesh,w,d,h,index===4?.19:.26);
   this.root.add(mesh);this.items.push(mesh);
   if(!position&&index===4){
-   const table=this.items.find(m=>m!==mesh&&m.userData.index===2);
+   const table=this.items.find(m=>m!==mesh&&[2,9,10].includes(m.userData.index));
    if(table)mesh.userData.attachment={id:table.userData.id,offset:[0,table.userData.height/2+h/2,0]};
   }
   if(!position&&index===5){
@@ -104,7 +104,30 @@ void main(){
   const shadow=new THREE.Mesh(new THREE.PlaneGeometry(w*1.06,d*1.08),material);shadow.rotation.x=-Math.PI/2;shadow.position.y=-h/2+.012;shadow.renderOrder=0;shadow.name='contact-shadow';mesh.add(shadow);
  }
  refreshAttachments(){for(const item of this.items){const link=item.userData.attachment;if(!link)continue;const base=this.items.find(m=>m.userData.id===link.id);if(!base){item.userData.attachment=null;this.keepOnFloor(item);continue;}const offset=new THREE.Vector3(...link.offset).applyAxisAngle(new THREE.Vector3(0,1,0),base.rotation.y);item.position.copy(base.position).add(offset);}}
- seed(kind='calm'){this.clear();if(kind==='empty')return;for(let i=0;i<4;i++)this.add(i);if(kind==='social'){this.items[3].position.set(-1.8,this.items[3].userData.height/2,.2);this.items[3].rotation.y=-Math.PI/3;}this.select(this.items[0]);}
+ seed(kind='calm',room='پذیرایی'){
+  this.clear();if(kind==='empty')return;
+  if(room==='اتاق خواب'){
+   this.add(7,new THREE.Vector3(.5,.0075,-1.8));
+   this.add(8,new THREE.Vector3(.5,.475,-1.85));
+   this.add(6,new THREE.Vector3(-.78,.775,-1.7));
+   this.add(4,new THREE.Vector3(1.65,.2,-2.55));
+  }else if(room==='ناهارخوری'){
+   this.add(10,new THREE.Vector3(.5,.375,-1.9));
+   for(const [x,z,angle] of [[-.75,-2.0,Math.PI/2],[1.75,-2.0,-Math.PI/2],[.5,-.95,0],[.5,-2.85,Math.PI]]){
+    const chair=this.add(11,new THREE.Vector3(x,.45,z));chair.rotation.y=angle;
+   }
+   this.add(4);
+  }else if(room==='فضای کار'){
+   this.add(9,new THREE.Vector3(.5,.37,-2.05));
+   this.add(11,new THREE.Vector3(.5,.45,-1.3));
+   this.add(6,new THREE.Vector3(-.7,.775,-2.1));
+   this.add(7,new THREE.Vector3(.5,.0075,-1.7));
+  }else{
+   for(let i=0;i<4;i++)this.add(i);
+   if(kind==='social'){this.items[3].position.set(-1.8,this.items[3].userData.height/2,.2);this.items[3].rotation.y=-Math.PI/3;}
+  }
+  this.select(this.items[0]||null);
+ }
  select(mesh){this.selected=mesh;for(const m of this.items)m.userData.edges.material.color.set(m===mesh?'#c3753c':'#645748');this.changed();}
  remove(){const m=this.selected;if(!m)return;this.items=this.items.filter(x=>x!==m);for(const child of this.items)if(child.userData.attachment?.id===m.userData.id){child.userData.attachment=null;this.keepOnFloor(child);}this.root.remove(m);this.disposeObject(m);this.select(this.items[0]||null);}
  clear(){for(const m of this.items){this.root.remove(m);this.disposeObject(m);}this.items=[];this.selected=null;this.serial=0;this.changed();}
