@@ -12,6 +12,7 @@ import {ARDebugView} from './ar-debug.js?v=0.2.6';
 import {buildLayout} from './layout-templates.js?v=0.3.1';
 import {assetMetadata,isLamp,isSofa,isTable,isWallArt} from './asset-metadata.js?v=0.3.2';
 import {installSofaCushions} from './sofa-cushions.js?v=0.3.2';
+import {isFloorSolid,footprint,footprintsOverlap,moveWithoutOverlap,rotateWithoutOverlap,nearestFreeFootprint} from './collision.js?v=0.3.4';
 export const palette=['#b6bca2','#d5c4ad','#b9c4c6','#ba9380'];
 const fa=n=>n.toLocaleString('fa-IR',{maximumFractionDigits:1});
 export class Studio{
@@ -179,6 +180,11 @@ void main(){
  duplicateSelected(){
   if(!this.selected||this.items.length>=24)return null;
   const source=this.selected,p=source.position.clone().add(new THREE.Vector3(Math.max(.43,source.userData.product.size[0]*.28),0,.18));
+  if(isFloorSolid(source.userData.index)){
+   const spot=nearestFreeFootprint(footprint(source.userData.product.size,p.x,p.z,source.rotation.y),this.collisionObstacles(),2.4);
+   if(!spot){this.onHint?.('فضای کافی برای کپی کنار مبلمان نیست.');return null;}
+   p.x=spot.x;p.z=spot.z;
+  }
   const copy=this.add(source.userData.index,p,{size:[...source.userData.product.size],seats:source.userData.seats});
   copy.rotation.y=source.rotation.y;copy.material.color.copy(source.material.color);
   if(source.userData.rugStyle)applyRugStyle(copy,source.userData.rugStyle);
@@ -191,6 +197,12 @@ void main(){
  replaceSelected(index,options={}){
   const old=this.selected;if(!old)return null;
   const p=old.position.clone(),id=old.userData.id,angle=old.rotation.y,color=old.material.color.clone();
+  const nextSize=options.size||CATALOG[index].size;
+  if(isFloorSolid(index)){
+   const ignored=this.items.filter(m=>old.userData.index===10&&m.userData.tableId===id);
+   const blocked=this.collisionObstacles(old,ignored).some(other=>footprintsOverlap(footprint(nextSize,p.x,p.z,angle),other));
+   if(blocked){this.onHint?.('برای تغییر ابعاد یا مدل، ابتدا فضای بیشتری باز کن.');return null;}
+  }
   const linked=this.items.filter(x=>x.userData.attachment?.id===id).map(x=>({mesh:x,attachment:{...x.userData.attachment}}));
   this.remove();
   const next=this.add(index,p,options);next.userData.id=id;next.rotation.y=angle;next.material.color.copy(color);
@@ -207,7 +219,7 @@ void main(){
   const oldChairs=this.items.filter(m=>m.userData.tableId===oldId);
   const center=table.position.clone(),angle=table.rotation.y;
   const width={2:1.05,4:1.35,6:1.85,8:2.35}[count];
-  const newer=this.replaceSelected(10,{size:[width,.75,.86]});newer.userData.capacity=count;
+  const newer=this.replaceSelected(10,{size:[width,.75,.86]});if(!newer)return false;newer.userData.capacity=count;
   for(const old of oldChairs){this.root.remove(old);this.items=this.items.filter(m=>m!==old);this.disposeObject(old);}
   for(let i=0;i<count/2;i++)for(const side of [-1,1]){
    const offset=new THREE.Vector3((i-(count/2-1)/2)*.55,0,side*.78).applyAxisAngle(new THREE.Vector3(0,1,0),angle);
@@ -219,9 +231,15 @@ void main(){
  setSofaSeats(count){
   if(!this.selected||![0,1,3].includes(this.selected.userData.index)||![1,2,3].includes(count))return false;
   const index=count===1?1:0,w={1:.9,2:1.62,3:2.1}[count];
-  this.replaceSelected(index,{size:[w,.85,.9],seats:count});return true;
+  return !!this.replaceSelected(index,{size:[w,.85,.9],seats:count});
  }
- snapToSupport(mesh,allowed=[2,9,10,12,13]){
+ setRugSize(size){
+   if(this.selected?.userData.index!==7||!Array.isArray(size)||size.length!==3)return false;
+   const current=this.selected.userData.rugStyle||'laki';
+   const next=this.replaceSelected(7,{size});if(!next)return false;
+   applyRugStyle(next,current);this.changed();return true;
+  }
+  snapToSupport(mesh,allowed=[2,9,10,12,13]){
   if(!mesh)return null;
   const base=this.items.find(other=>{
    if(other===mesh||!other.visible||!allowed.includes(other.userData.index))return false;
@@ -258,7 +276,8 @@ void main(){
  addAtMarker(index){
   const h=CATALOG[index].size[1];
   const p=this.placementPoint?new THREE.Vector3(this.placementPoint.x,h/2,this.placementPoint.z):undefined;
-  const item=this.add(index,p);
+  const previous=this.selected,item=this.add(index,p);
+  if(!this.tryPlaceNew(item,previous,2.3))return null;
   if(index===10){item.userData.capacity=4;this.setDiningCapacity(4);}
   if(index===4)this.snapVase(item);
   if(index===14)this.snapToSupport(item);
@@ -292,7 +311,9 @@ void main(){
  remove(){const m=this.selected;if(!m)return;this.items=this.items.filter(x=>x!==m);for(const child of this.items)if(child.userData.attachment?.id===m.userData.id){child.userData.attachment=null;this.keepOnFloor(child);}this.root.remove(m);this.disposeObject(m);this.select(this.items[0]||null);}
  clear(){for(const m of this.items){this.root.remove(m);this.disposeObject(m);}this.items=[];this.selected=null;this.serial=0;this.changed();}
  disposeObject(object){object.traverse(o=>{o.geometry?.dispose();if(o.material){o.material.map?.dispose();o.material.dispose();}});}
- rotate(degrees){if(!this.selected)return;this.selected.rotation.y=degrees===undefined?this.selected.rotation.y+Math.PI/4:degrees*Math.PI/180;this.keepOnFloor(this.selected);this.refreshAttachments();this.changed();}
+ rotate(degrees){if(!this.selected)return;const mesh=this.selected;const desired=degrees===undefined?mesh.rotation.y+Math.PI/4:degrees*Math.PI/180;
+  mesh.rotation.y=isFloorSolid(mesh.userData.index)?rotateWithoutOverlap(this.collisionShape(mesh),desired,this.collisionObstacles(mesh)):desired;
+  this.keepOnFloor(mesh);this.refreshAttachments();this.changed();}
  color(color){if(this.selected){this.selected.material.color.set(color);this.changed();}}
  calibrate(cm){this.model.calibrate(Number(cm)/100);this.measureTool.setCorrection(this.model.correction);this.syncSpatial();this.changed();return this.measurement();}
  resetCalibration(){this.model.resetCalibration();this.measureTool.setCorrection(this.model.correction);this.syncSpatial();this.changed();}
@@ -312,6 +333,24 @@ void main(){
  floorLocal(point){return this.floorFrame.worldToLocal(point.clone());}
  rootLocal(point){return this.root.worldToLocal(point.clone());}
  keepOnFloor(mesh){if(mesh&&!mesh.userData.attachment&&!isWallArt(mesh.userData.index))mesh.position.y=mesh.userData.height/2;}
+  collisionShape(mesh,x=mesh.position.x,z=mesh.position.z,angle=mesh.rotation.y,size=mesh.userData.product.size){
+   return footprint(size,x,z,angle);
+  }
+  collisionObstacles(excluded=null,ignored=[]){
+   return this.items.filter(m=>m!==excluded&&!ignored.includes(m)&&m.visible&&isFloorSolid(m.userData.index))
+    .map(m=>this.collisionShape(m));
+  }
+  tryPlaceNew(mesh,previous=null,maxRadius=2.3){
+   if(!mesh||!isFloorSolid(mesh.userData.index))return !!mesh;
+   const found=nearestFreeFootprint(this.collisionShape(mesh),this.collisionObstacles(mesh),maxRadius);
+   if(!found){
+    this.items=this.items.filter(m=>m!==mesh);this.root.remove(mesh);this.disposeObject(mesh);
+    this.select(previous&&this.items.includes(previous)?previous:(this.items[0]||null));
+    this.onHint?.('اینجا فضای خالی کافی برای این مدل وجود ندارد.');
+    return false;
+   }
+   mesh.position.x=found.x;mesh.position.z=found.z;this.refreshAttachments();return true;
+  }
  hitHandle(e,target){const bounds=target.getBoundingClientRect();let best=null,distance=36;for(const h of [this.handleA,this.handleB]){const p=h.getWorldPosition(new THREE.Vector3()).project(this.activeCamera());if(p.z>1||p.z< -1)continue;const d=Math.hypot((p.x+1)*bounds.width/2+bounds.left-e.clientX,(1-p.y)*bounds.height/2+bounds.top-e.clientY);if(d<distance){distance=d;best=h.userData.handle;}}return best;}
  down(e,target){if(this.photoMode){this.onPhotoTap?.();return;}
   if(this.measureTool.active&&this.model.locked&&(!this.session||this.tracking)){
@@ -335,12 +374,19 @@ void main(){
  twistAngle(target){const [a,b]=[...this.points.values()];if(!a||!b)return null;const dx=b.clientX-a.clientX,dy=b.clientY-a.clientY;if(Math.hypot(dx,dy)<.5)return null;return Math.atan2(-dy,dx);}
  startTwist(target){const angle=this.twistAngle(target);if(angle!==null)this.gesture={kind:'twist',start:angle,rotation:this.selected.rotation.y};}
  drag(e,target){if(!this.points.has(e.pointerId)||this.photoMode||(this.session&&!this.tracking))return;e.preventDefault();this.points.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});const g=this.gesture;if(!g)return;
-  if(this.points.size===2&&this.selected){if(g.kind!=='twist'){this.startTwist(target);return;}const angle=this.twistAngle(target);if(angle!==null)this.selected.rotation.y=g.rotation+wrappedAngle(angle-g.start);this.keepOnFloor(this.selected);this.refreshAttachments();return;}
+  if(this.points.size===2&&this.selected){if(g.kind!=='twist'){this.startTwist(target);return;}const angle=this.twistAngle(target);if(angle!==null){const desired=g.rotation+wrappedAngle(angle-g.start);this.selected.rotation.y=isFloorSolid(this.selected.userData.index)?rotateWithoutOverlap(this.collisionShape(this.selected),desired,this.collisionObstacles(this.selected)):desired;}this.keepOnFloor(this.selected);this.refreshAttachments();return;}
   if(this.points.size!==1||g.kind==='twist')return;const p=this.pointOnFloor(e,target);if(!p)return;
   if(g.kind==='layout'){
    this.model.layoutOffset.copy(this.floorLocal(p).add(g.offset));this.syncSpatial();return;
   }
-  if(g.kind==='object'&&this.selected){const local=this.rootLocal(p).add(g.offset);this.selected.position.x=local.x;this.selected.position.z=local.z;if([4,14].includes(this.selected.userData.index)){this.snapToSupport(this.selected);}else{this.keepOnFloor(this.selected);if(this.selected.userData.attachment){const link=this.selected.userData.attachment,base=this.items.find(m=>m.userData.id===link.id);if(base){const offset=this.selected.position.clone().sub(base.position).applyAxisAngle(new THREE.Vector3(0,1,0),-base.rotation.y);link.offset[0]=offset.x;link.offset[2]=offset.z;}}this.refreshAttachments();}}
+  if(g.kind==='object'&&this.selected){const mesh=this.selected,local=this.rootLocal(p).add(g.offset);
+    // Limit a single tracking update to prevent teleporting after XR tracking glitches.
+    const dx=local.x-mesh.position.x,dz=local.z-mesh.position.z,dist=Math.hypot(dx,dz);
+    const step=this.session ? .48 : .85,factor=dist>step?step/dist:1;
+    const desired={x:mesh.position.x+dx*factor,z:mesh.position.z+dz*factor};
+    const safe=isFloorSolid(mesh.userData.index)?moveWithoutOverlap(this.collisionShape(mesh),desired,this.collisionObstacles(mesh)):desired;
+    mesh.position.x=safe.x;mesh.position.z=safe.z;
+    if([4,14].includes(this.selected.userData.index)){this.snapToSupport(this.selected);}else{this.keepOnFloor(this.selected);if(this.selected.userData.attachment){const link=this.selected.userData.attachment,base=this.items.find(m=>m.userData.id===link.id);if(base){const offset=this.selected.position.clone().sub(base.position).applyAxisAngle(new THREE.Vector3(0,1,0),-base.rotation.y);link.offset[0]=offset.x;link.offset[2]=offset.z;}}this.refreshAttachments();}}
   else if(g.kind==='A'){this.model.moveA(this.floorLocal(p).add(g.offset));this.syncSpatial();}
   else if(g.kind==='B'){this.model.moveB(this.floorLocal(p).add(g.offset));this.syncSpatial();}
  }
