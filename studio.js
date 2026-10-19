@@ -10,6 +10,7 @@ import {EnvironmentEffects} from './effects.js?v=0.2.4';
 import {AnchorStabilizer,transformPoint} from './anchor-rig.js?v=0.2.4';
 import {ARDebugView} from './ar-debug.js?v=0.2.6';
 import {buildLayout} from './layout-templates.js?v=0.3.1';
+import {captureInternalAR,canCaptureCamera,InternalCaptureUnavailable} from './internal-camera-capture.js?v=0.4.0';
 import {assetMetadata,isLamp,isSofa,isTable,isWallArt} from './asset-metadata.js?v=0.3.4';
 import {installSofaCushions} from './sofa-cushions.js?v=0.3.2';
 import {isFloorSolid,footprint,footprintsOverlap,moveWithoutOverlap,rotateWithoutOverlap,moveGroupWithoutOverlap,rotateGroupWithoutOverlap,nearestFreeFootprint} from './collision.js?v=0.3.4';
@@ -23,7 +24,7 @@ export class Studio{
   this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));this.renderer.xr.enabled=true;this.renderer.xr.setReferenceSpaceType('local');host.prepend(this.renderer.domElement);
   this.effects=new EnvironmentEffects(this.scene,this.renderer);
   this.floorFrame=new THREE.Group();this.scene.add(this.floorFrame);this.root=new THREE.Group();this.floorFrame.add(this.root);
-  this.placementEnabled=false;this.placementPoint=null;this.lastSelectionUI=0;this.moveLayoutMode=false;
+  this.placementEnabled=false;this.placementPoint=null;this.lastSelectionUI=0;this.moveLayoutMode=false;this.cameraBinding=null;this.pendingPhoto=null;
   this.measureTool=new MeasureTool(this.floorFrame,text=>this.makeLabel(text));this.measureTool.label.userData.updateText=text=>this.setLabel(this.measureTool.label,text);
   // The landing pin is on the already-locked virtual floor; it never changes ARCore tracking.
   this.placementMarker=new THREE.Mesh(new THREE.PlaneGeometry(.66,.66).rotateX(-Math.PI/2),
@@ -441,10 +442,22 @@ void main(){
  setPhotoMode(enabled){this.cancelGesture();this.photoMode=enabled;this.setGuides();this.changed();}
  status(message){if(this.lastStatus!==message){this.lastStatus=message;this.onStatus?.(message);}}
  dropAnchor(){this.anchorGeneration++;for(const item of this.anchorNodes)try{item.anchor.delete();}catch{}this.anchorNodes=[];this.anchorCandidates=[];this.anchorActive=false;this.anchorRig=new AnchorStabilizer();this.needsAnchor=false;this.anchorPending=false;this.anchorState='مختصات ثابت';}
+ capturePhoto(ratio='4:3'){
+  if(!this.session||!this.model.locked) return Promise.reject(new InternalCaptureUnavailable('برای کپچر داخلی، ابتدا کف AR را تثبیت کن.'));
+  if(!canCaptureCamera(this.session,this.cameraBinding))return Promise.reject(new InternalCaptureUnavailable('دوربین این دستگاه اجازه کپچر مستقیم داخل WebXR را نمی‌دهد. عکس خام بدون مدل ذخیره نخواهد شد.'));
+  if(this.pendingPhoto)return Promise.reject(new InternalCaptureUnavailable('ثبت عکس قبلی هنوز تمام نشده است.'));
+  return new Promise((resolve,reject)=>{
+   const pending={resolve,reject,ratio};
+   pending.timeout=setTimeout(()=>{if(this.pendingPhoto===pending){this.pendingPhoto=null;reject(new InternalCaptureUnavailable('فریم دوربین دریافت نشد؛ دوباره امتحان کن.'));}},3500);
+   this.pendingPhoto=pending;
+  });
+ }
  async startAR(status,report,basic=false,options={}){
   const session=await requestARSession(navigator.xr,document.querySelector('#overlay'),basic,options);this.session=session;this.onStatus=status;this.onReport=report;this.tracking=false;this.frames=0;this.fps=0;this.lastReport=performance.now();this.lastReportState='';this.lastStatus='';this.debugView.start();this.model.locked=false;this.model.heightOffset=0;this.model.resetCalibration();this.anchorRig=new AnchorStabilizer();this.scanMarkers.visible=true;this.scanHits=0;this.scanDrop=null;this.scanDistance=null;this.floorNet.material.uniforms.opacity.value=.85;this.syncSpatial();this.scanner.reset();this.debugView.note('scan started');this.root.visible=false;this.floorNet.visible=false;this.ruler.visible=false;this.scene.background=null;this.status('کف را اسکن کن؛ دوربین را آرام رو به پایین حرکت بده.');
   session.addEventListener('end',()=>this.endSession(),{once:true});let stage='renderer';
-  try{await this.renderer.xr.setSession(session);stage='hit-test';await this.beginScan();this.hasOverlay=!!session.domOverlayState;this.effects.start(session,options);session.addEventListener('select',e=>{if(this.hasOverlay||!this.tracking||this.photoMode)return;if(!this.placed&&this.scanner.ready)this.confirmFloor();else this.selectAR(e);});return {hasOverlay:this.hasOverlay};}
+  try{await this.renderer.xr.setSession(session);this.cameraBinding=null;
+    if(session.enabledFeatures?.includes('camera-access')&&globalThis.XRWebGLBinding){try{this.cameraBinding=new XRWebGLBinding(session,this.renderer.getContext());}catch(error){console.warn('Camera binding unavailable',error?.name||error);}}
+    stage='hit-test';await this.beginScan();this.hasOverlay=!!session.domOverlayState;this.effects.start(session,options);session.addEventListener('select',e=>{if(this.hasOverlay||!this.tracking||this.photoMode)return;if(!this.placed&&this.scanner.ready)this.confirmFloor();else this.selectAR(e);});return {hasOverlay:this.hasOverlay};}
   catch(error){try{await session.end();}catch{}throw xrError(error,stage);}
  }
  async beginScan(){const session=this.session;if(!session)return;this.dropAnchor();const generation=this.anchorGeneration;this.hitSource?.cancel();this.hitSource=null;for(const s of this.extraHitSources)try{s.cancel();}catch{}this.extraHitSources=[];this.revealStart=null;this.scanMarkers.visible=true;this.floorNet.material.uniforms.reveal.value=.65;this.floorNet.material.uniforms.pulse.value=1;this.scanCrosses.forEach(m=>m.visible=false);this.model.locked=false;if(this.measureTool)this.measureTool.group.visible=false;this.scanner.reset();this.root.visible=false;this.ruler.visible=false;this.floorNet.visible=false;this.floorNet.material.uniforms.opacity.value=.85;this.cancelGesture();this.status('کف را پیدا کن؛ سطح پایین‌تر معمولاً کف است. سپس «تثبیت کف» را بزن.');const viewer=await session.requestReferenceSpace('viewer');const source=await session.requestHitTestSource({space:viewer,entityTypes:['plane']});if(this.session!==session||this.anchorGeneration!==generation){source.cancel();return;}this.hitSource=source;
@@ -516,7 +529,7 @@ void main(){
   if(this.anchorNodes.length>=5){this.hitSource?.cancel();this.hitSource=null;}
  }
  selectAR(event){if(!this.model.locked)return;const pose=event.frame.getPose(event.inputSource.targetRaySpace,this.renderer.xr.getReferenceSpace());if(!pose)return;const matrix=new THREE.Matrix4().fromArray(pose.transform.matrix);this.ray.ray.origin.setFromMatrixPosition(matrix);this.ray.ray.direction.set(0,0,-1).transformDirection(matrix);this.floorFrame.updateMatrixWorld(true);const hit=furnitureHit(this.ray,this.items);if(hit)this.select(hit.object);}
- endSession(){try{this.hitSource?.cancel();}catch{}for(const s of this.extraHitSources)try{s.cancel();}catch{}this.extraHitSources=[];this.hitSource=null;this.debugView.note('AR session ended');this.measureTool?.setActive(false);this.setPlacementEnabled(false);this.dropAnchor();this.needsAnchor=false;this.moveLayoutMode=false;this.session=null;this.model.origin.set(0,0,0);this.model.anchorYaw=0;this.model.heightOffset=0;this.model.locked=true;this.tracking=true;this.root.visible=true;this.photoMode=false;this.scanMarkers.visible=false;this.syncSpatial();this.setGuides();this.effects.reset();this.scene.background=new THREE.Color('#eeeee3');this.camera.position.set(5.2,4.4,6);this.camera.lookAt(.6,0,-.5);this.cancelGesture();this.resize();document.querySelector('#overlay').hidden=true;this.onEnd?.();this.changed();}
+ endSession(){if(this.pendingPhoto){clearTimeout(this.pendingPhoto.timeout);this.pendingPhoto.reject(new InternalCaptureUnavailable('جلسه AR پیش از ثبت عکس بسته شد.'));this.pendingPhoto=null;}this.cameraBinding=null;try{this.hitSource?.cancel();}catch{}for(const s of this.extraHitSources)try{s.cancel();}catch{}this.extraHitSources=[];this.hitSource=null;this.debugView.note('AR session ended');this.measureTool?.setActive(false);this.setPlacementEnabled(false);this.dropAnchor();this.needsAnchor=false;this.moveLayoutMode=false;this.session=null;this.model.origin.set(0,0,0);this.model.anchorYaw=0;this.model.heightOffset=0;this.model.locked=true;this.tracking=true;this.root.visible=true;this.photoMode=false;this.scanMarkers.visible=false;this.syncSpatial();this.setGuides();this.effects.reset();this.scene.background=new THREE.Color('#eeeee3');this.camera.position.set(5.2,4.4,6);this.camera.lookAt(.6,0,-.5);this.cancelGesture();this.resize();document.querySelector('#overlay').hidden=true;this.onEnd?.();this.changed();}
  frame(time,frame){
   if(frame&&this.session){const space=this.renderer.xr.getReferenceSpace(),pose=frame.getViewerPose(space);this.tracking=!!pose;
    if(!pose){this.cancelGesture();this.status('ردیابی قطع شد؛ چیدمان جابجا نمی‌شود. دوربین را آرام به محیط برگردان.');}
@@ -569,6 +582,10 @@ void main(){
    if(time-this.lastSelectionUI>32){this.onSelectionScreen?.(this.selectionScreenPosition());this.lastSelectionUI=time;}
   }
   this.scaleLabels();this.renderer.render(this.scene,this.camera);
+  if(frame&&this.session&&this.pendingPhoto){
+   const task=this.pendingPhoto;this.pendingPhoto=null;clearTimeout(task.timeout);
+   try{Promise.resolve(captureInternalAR({session:this.session,binding:this.cameraBinding,frame,referenceSpace:this.renderer.xr.getReferenceSpace(),renderer:this.renderer,scene:this.scene,ratio:task.ratio})).then(task.resolve,task.reject);}catch(error){task.reject(error);}
+  }
  }
  scaleLabels(){if(this.photoMode)return;const camera=this.activeCamera(),eye=camera.getWorldPosition(new THREE.Vector3()),height=this.session?document.querySelector('#arSurface').clientHeight:this.host.clientHeight;
   const labels=[this.rulerLabel,this.handleA.children[0],this.handleB.children[0],...this.items.map(m=>m.userData.label)];
