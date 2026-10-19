@@ -80,6 +80,71 @@ export function moveWithoutOverlap(moving, goal, obstacles) {
   return { x: current.x, z: current.z };
 }
 
+// Translate a tabletop and its linked chairs as a single rigid group.
+export function moveGroupWithoutOverlap(movers, goal, obstacles) {
+  if (!movers.length) return goal;
+  const anchor = movers[0];
+  if (![anchor.x, anchor.z, goal.x, goal.z].every(Number.isFinite)) return { x: anchor.x, z: anchor.z };
+  const active = movers.map(m => obstacles.filter(b => !footprintsOverlap(m, b)));
+  let shiftX = 0, shiftZ = 0;
+  let remaining = { x: goal.x - anchor.x, z: goal.z - anchor.z };
+  for (let iteration = 0; iteration < 3; iteration++) {
+    const length = Math.hypot(remaining.x, remaining.z);
+    if (length < .0001) break;
+    let first = null;
+    for (let i = 0; i < movers.length; i++) {
+      const base = movers[i];
+      const start = { ...base, x: base.x + shiftX, z: base.z + shiftZ };
+      const target = { ...start, x: start.x + remaining.x, z: start.z + remaining.z };
+      for (const blocker of active[i]) {
+        const contact = firstContact(start, target, blocker);
+        if (contact && (!first || contact.time < first.time)) first = contact;
+      }
+    }
+    if (!first) { shiftX += remaining.x; shiftZ += remaining.z; break; }
+    const fraction = Math.max(0, first.time - .002 / length);
+    shiftX += remaining.x * fraction; shiftZ += remaining.z * fraction;
+    const vx = remaining.x * (1 - fraction), vz = remaining.z * (1 - fraction);
+    const into = Math.min(0, vx * first.normal.x + vz * first.normal.z);
+    remaining = { x: vx - into * first.normal.x, z: vz - into * first.normal.z };
+    if (Math.abs(into) < EPS) break;
+  }
+  return { x: anchor.x + shiftX, z: anchor.z + shiftZ };
+}
+
+function rotatedGroupShape(shape, anchor, delta) {
+  const dx = shape.x - anchor.x, dz = shape.z - anchor.z;
+  const c = Math.cos(delta), s = Math.sin(delta);
+  return { ...shape, x: anchor.x + dx * c + dz * s, z: anchor.z - dx * s + dz * c, angle: shape.angle + delta };
+}
+
+export function rotateGroupWithoutOverlap(movers, desiredAngle, obstacles) {
+  if (!movers.length) return desiredAngle;
+  const anchor = movers[0], delta = desiredAngle - anchor.angle;
+  if (!Number.isFinite(delta) || Math.abs(delta) < EPS) return anchor.angle;
+  const active = movers.map(m => obstacles.filter(b => !footprintsOverlap(m, b)));
+  const blocked = angle => movers.some((shape, i) => {
+    const test = rotatedGroupShape(shape, anchor, angle - anchor.angle);
+    return active[i].some(b => footprintsOverlap(test, b));
+  });
+  const steps = Math.min(72, Math.max(1, Math.ceil(Math.abs(delta) / (Math.PI / 36))));
+  let safe = anchor.angle;
+  for (let i = 1; i <= steps; i++) {
+    const angle = anchor.angle + delta * i / steps;
+    if (blocked(angle)) {
+      let low = safe, high = angle;
+      for (let j = 0; j < 9; j++) {
+        const mid = (low + high) / 2;
+        if (blocked(mid)) high = mid;
+        else low = mid;
+      }
+      return low;
+    }
+    safe = angle;
+  }
+  return desiredAngle;
+}
+
 export function rotateWithoutOverlap(moving, desiredAngle, obstacles) {
   if (!Number.isFinite(desiredAngle)) return moving.angle;
   const delta = desiredAngle - moving.angle;
