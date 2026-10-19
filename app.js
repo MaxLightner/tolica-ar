@@ -7,9 +7,6 @@ import {readDraft,saveDraft,clearDraft,listCustomLayouts,saveCustomLayout,remove
 import {ASSET_CATEGORIES,isLamp,isSofa,isTable,isWallArt,variantsFor,categoryForIndex} from './asset-metadata.js?v=0.3.2';
 import {savedPlanSvg} from './saved-plan.js?v=0.3.2';
 import {CUSHION_PRESETS} from './sofa-cushions.js?v=0.3.2';
-import {ASSET_CATEGORIES,assetMetadata,variantsFor,isLamp,isSofa,isTable,isWallArt} from './asset-metadata.js?v=0.3.2';
-import {savedPlanSvg} from './saved-plan.js?v=0.3.2';
-import {CUSHION_PRESETS} from './sofa-cushions.js?v=0.3.2';
 const $=s=>document.querySelector(s),app=$('#app'),fa=n=>n.toLocaleString('fa-IR');
 let studio,Scene,palette,space='پذیرایی',layout='conversation',supported=false,routeVersion=0,photoURLs=[],savedItems=[],arReport=null,sceneMemory=null,arStarting=false,lastXRErrorReport='';
 const themes=[
