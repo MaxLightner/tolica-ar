@@ -1,0 +1,18 @@
+name: Tolica JavaScript checks
+on:
+  push:
+    branches: [main, feature/ar-first-ui-decor-ruler-028]
+  pull_request:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and behavioral unit tests
+        run: |
+          npm run check
+          npm test
