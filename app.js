@@ -16,7 +16,11 @@ const catalogImages=[
  ['گلدان','<path d="M39 71h24l7-35H33zM51 35V12m0 23-15-14m15 9 18-13"/><path d="M33 22q15-20 18 9M70 17q-20-5-19 13"/>'],
  ['کوسن','<rect x="22" y="23" width="58" height="49" rx="14"/><path d="M29 30q23 12 44 0m-44 34q23-12 44 0"/>'],
  ['آباژور','<path d="M36 24h30l9 29H27zM51 53v25M33 79h36"/>'],
- ['فرش','<rect x="13" y="20" width="77" height="60" rx="3"/><path d="M22 26h59v48H22zM51 34l19 16-19 16-19-16z"/>']
+ ['فرش','<rect x="13" y="20" width="77" height="60" rx="3"/><path d="M22 26h59v48H22zM51 34l19 16-19 16-19-16z"/>'],
+ ['تخت خواب','<rect x="20" y="12" width="60" height="76" rx="4"/><rect x="25" y="25" width="50" height="54" rx="5"/><rect x="27" y="30" width="21" height="15" rx="4"/><rect x="52" y="30" width="21" height="15" rx="4"/>'],
+ ['میز کار','<rect x="13" y="25" width="74" height="40" rx="3"/><path d="M22 66v14m56-14v14M25 35h20v20H25z"/>'],
+ ['میز ناهارخوری','<rect x="20" y="22" width="60" height="58" rx="8"/><path d="M31 13h38M31 88h38M11 36v30m78-30v30"/>'],
+ ['صندلی ناهارخوری','<rect x="29" y="20" width="42" height="58" rx="5"/><path d="M29 36h42M36 68h28"/>']
 ];
 function objectIcon(index){return `<svg viewBox="0 0 100 100" class="object-icon" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">${catalogImages[index]?.[1]||''}</svg>`;}
 function planSketch(kind){
@@ -24,6 +28,19 @@ function planSketch(kind){
  const table=(x,y)=>`<g transform="translate(${x} ${y})"><rect x="0" y="0" width="55" height="37" rx="6" fill="#a98e77" stroke="#87705d"/><path d="M10 10h35M10 19h35" stroke="#d7c0a9"/></g>`;
  const room=`<rect x="14" y="12" width="290" height="207" rx="9" fill="#f4efe8" stroke="#c6b9ad" stroke-width="5"/><path d="M28 12h82m76 0h60" stroke="#f4efe8" stroke-width="7"/><path d="M122 12h52" stroke="#87b4b0" stroke-width="5"/>`;
  let plan='';
+ if(space==='اتاق خواب'){
+  plan=`<rect x="67" y="39" width="186" height="170" rx="13" fill="#e6ded3"/><rect x="100" y="34" width="126" height="160" rx="9" fill="#a78d7b" stroke="#867262" stroke-width="2"/><rect x="105" y="54" width="116" height="134" rx="9" fill="#e7e0d7"/><rect x="114" y="66" width="45" height="34" rx="8" fill="#d0c1b2"/><rect x="168" y="66" width="45" height="34" rx="8" fill="#d0c1b2"/><rect x="45" y="60" width="38" height="45" rx="4" fill="#a98e77"/><rect x="246" y="60" width="38" height="45" rx="4" fill="#a98e77"/>`;
+  return `<svg viewBox="0 0 318 231" role="img" aria-label="پلان اتاق خواب از بالا">${room}${plan}</svg>`;
+ }
+ if(space==='ناهارخوری'){
+  const chair=(x,y,r=0)=>`<g transform="translate(${x} ${y}) rotate(${r})"><rect x="0" y="0" width="39" height="35" rx="7" fill="#cbb5a0" stroke="#917e6a"/><path d="M4 7h31" stroke="#8a7767" stroke-width="4"/></g>`;
+  plan=`<rect x="76" y="34" width="175" height="162" rx="11" fill="#e2dad0"/><rect x="118" y="53" width="93" height="130" rx="10" fill="#b9a18a" stroke="#897260"/>${chair(67,79,0)}${chair(223,79,0)}${chair(68,135,0)}${chair(223,135,0)}`;
+  return `<svg viewBox="0 0 318 231" role="img" aria-label="پلان ناهارخوری از بالا">${room}${plan}</svg>`;
+ }
+ if(space==='فضای کار'){
+  plan=`<rect x="56" y="52" width="215" height="139" rx="9" fill="#e4d9cb"/><rect x="79" y="35" width="162" height="63" rx="7" fill="#a89077" stroke="#85715c"/><rect x="131" y="120" width="65" height="55" rx="13" fill="#c4b19b" stroke="#8b7765"/><circle cx="59" cy="179" r="15" fill="#8c9d84"/>`;
+  return `<svg viewBox="0 0 318 231" role="img" aria-label="پلان فضای کار از بالا">${room}${plan}</svg>`;
+ }
  if(kind==='social')plan=`<rect x="60" y="64" width="186" height="113" rx="12" fill="#e5ded3"/>${sofa(96,43,126)}${sofa(47,176,90,-90)}${sofa(263,90,90,90)}${table(134,107)}`;
  else if(kind==='light')plan=`<rect x="78" y="48" width="172" height="144" rx="13" fill="#e4ded4"/>${sofa(64,63,99)}${sofa(264,63,80,90)}${table(153,112)}<circle cx="52" cy="188" r="14" fill="#849b86"/>`;
  else plan=`<rect x="51" y="70" width="216" height="122" rx="13" fill="#dfd5c7"/>${sofa(77,42,132)}${sofa(66,156,82)}${sofa(255,70,85,90)}${table(144,112)}<circle cx="271" cy="191" r="14" fill="#8ca28c"/>`;
@@ -82,7 +99,7 @@ async function render(){const version=++routeVersion;const route=location.hash.s
  try{
   await loadScene();if(version!==routeVersion)return;
   studio=new Scene($('#viewport'),updateObjects);
-  if(sceneMemory)studio.restoreState(sceneMemory);else{studio.seed(layout);const colors=themes[themeIndex].colors;studio.items.forEach((m,i)=>m.material.color.set(colors[i%colors.length]));}
+  if(sceneMemory)studio.restoreState(sceneMemory);else{studio.seed(layout,space);const colors=themes[themeIndex].colors;studio.items.forEach((m,i)=>m.material.color.set(colors[i%colors.length]));}
   studio.onEnd=()=>{setPhotoMode(false);closeArSheet();$('#arDock').hidden=true;$('#measureHint').hidden=true;};
   studio.onPhotoTap=revealPhotoExit;
   studio.debugView.onUpdate=()=>{if(debugEnabled)refreshDebugPanel();};
