@@ -1,4 +1,4 @@
-import {explainXR} from './xr.js?v=0.4.1';
+import {explainXR} from './xr.js?v=0.4.3';
 import {photos,savePhoto,removePhoto} from './storage.js';
 import {CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto} from './camera-capture.js?v=0.3.2';
 import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.3.2';
