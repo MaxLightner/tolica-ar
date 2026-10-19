@@ -128,7 +128,7 @@ void main(){
  down(e,target){if(this.photoMode){this.onPhotoTap?.();return;}
   if(this.measureTool.active&&this.model.locked&&(!this.session||this.tracking)){
    e.preventDefault();const p=this.pointOnFloor(e,target);
-   if(p){const meters=this.measureTool.setPoint(this.floorLocal(p));this.onMeasure?.(meters);}
+   if(p){const meters=this.measureTool.setPoint(this.floorLocal(p));this.onMeasure?.(meters,!!this.measureTool.a&&!this.measureTool.b);}
    return;
   }
   if(!this.model.locked||(this.session&&!this.tracking)||this.points.size>=2||(this.points.size===1&&['A','B'].includes(this.gesture?.kind)))return;e.preventDefault();target.setPointerCapture(e.pointerId);this.points.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});
