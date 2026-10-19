@@ -339,6 +339,7 @@ function setPhotoMode(enabled){
 function setCameraRatio(){
  const ratio=CAMERA_RATIOS[$('#cameraRatio').value]||4/3;
  $('#cameraFraming').style.aspectRatio=ratio;
+ $('#cameraFraming').style.setProperty('--frame-ratio',String(ratio));
 }
 $('#cameraRatio').onchange=setCameraRatio;
 $('#cameraClose').onclick=()=>setPhotoMode(false);
