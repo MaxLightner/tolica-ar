@@ -129,3 +129,44 @@
 @media(max-width:390px){.ar-dock button{font-size:18px;min-height:50px}.ar-dock button span{font-size:9px}.ar-tool-sheet{bottom:calc(77px + env(safe-area-inset-bottom))}.catalog-tile span{font-size:10px}.ar-object-grid{gap:5px}.catalog-tile{min-height:78px}.catalog-tile .object-icon{width:42px;height:42px}}
 @media(orientation:landscape) and (max-height:550px){.ar-dock{right:10px;left:auto;width:340px;bottom:8px}.ar-tool-sheet{left:10px;right:auto;bottom:10px;width:min(46vw,400px);max-height:85svh}.ar-launch-stage{height:calc(100svh - 50px);min-height:calc(100svh - 50px)!important}.launch-placeholder{inset:0 20% 13%}}
 @media(min-width:700px){.room-prefs{max-width:680px;margin:24px auto}.ar-tool-sheet{max-height:65svh}.ar-launch-stage{height:calc(100svh - 72px)}}
+
+/* v0.2.9: responsive occupancy selector and tablet-scale controls */
+.people-picks{display:flex;gap:9px;overflow-x:auto;padding:4px 2px 10px;scrollbar-width:thin}
+.people-picks button{min-width:67px;min-height:43px;border-radius:12px;border:1px solid #d3c5b5;background:#f3eae1;padding:9px 12px;font-size:13px;white-space:nowrap}
+.people-picks button.selected{background:#4e5749;color:#fff;border-color:#4e5749;box-shadow:0 3px 9px #51483d18}
+/* Increase tablet typography, tap targets and panel size by approximately 20%. */
+@media(min-width:600px) and (min-height:550px){
+ .room-prefs .pref-heading{font-size:16px;line-height:1.7}
+ .room-prefs .pref-heading small{font-size:12px}
+ .room-prefs .style-pills button{font-size:15px;min-height:49px;padding:11px 16px}
+ .room-prefs .theme-picks button{min-width:128px;padding:10px 12px}
+ .room-prefs .theme-picks small{font-size:13px}
+ .room-prefs .theme-blocks{height:34px}
+ .room-prefs .people-picks button{font-size:16px;min-height:53px;min-width:83px}
+ .ar-dock{max-width:665px;padding:9px;gap:6px;border-radius:23px}
+ .ar-dock button{min-height:66px;font-size:24px;border-radius:14px}
+ .ar-dock button span{font-size:12px;line-height:1.4}
+ .ar-tool-sheet{max-width:670px;max-height:min(65svh,560px);bottom:calc(105px + env(safe-area-inset-bottom));padding:18px;border-radius:24px}
+ .ar-sheet-head{font-size:17px;padding-bottom:13px}
+ .ar-sheet-head button{font-size:27px}
+ .ar-object-grid{gap:12px}
+ .catalog-tile{min-height:109px;font-size:14px;padding:9px 5px}
+ .catalog-tile span{font-size:14px}
+ .catalog-tile .object-icon{width:64px;height:64px}
+ .sheet-tip{font-size:14px}
+ .ar-object-list button{font-size:14px;min-height:56px}
+ .ar-object-list .object-icon{width:44px;height:44px}
+ .ar-object-list button small{font-size:12px}
+ .item-actions button{font-size:15px;min-height:53px}
+ .ar-tool-sheet #arSettings summary{font-size:15px}
+ .ar-tool-sheet .xr-option{font-size:15px}
+ .ar-tool-sheet .xr-status{font-size:14px}
+ .ar-top #arStatus{font-size:23px}
+ .ar-nav-actions button{font-size:12px;padding:12px 14px}
+ #measureHint{font-size:16px;padding:12px}
+ #measureHint button{font-size:13px}
+}
+@media(orientation:landscape) and (min-width:600px) and (max-height:550px){
+ .ar-dock{width:min(65vw,420px)}
+ .ar-tool-sheet{width:min(55vw,470px)}
+}
