@@ -426,7 +426,8 @@ void main(){
   if(g.kind==='object'&&this.selected){const mesh=this.selected,local=this.rootLocal(p).add(g.offset);
     // Limit a single tracking update to prevent teleporting after XR tracking glitches.
     const dx=local.x-mesh.position.x,dz=local.z-mesh.position.z,dist=Math.hypot(dx,dz);
-    const step=this.session ? .48 : .85,factor=dist>step?step/dist:1;
+    if(!Number.isFinite(dist)||dist<.004)return;
+    const step=this.session ? .28 : .65,factor=dist>step?step/dist:1;
     const desired={x:mesh.position.x+dx*factor,z:mesh.position.z+dz*factor};
     const safe=this.safeObjectMotion(mesh,desired);
     mesh.position.x=safe.x;mesh.position.z=safe.z;
