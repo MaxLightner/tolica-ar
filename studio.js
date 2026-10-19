@@ -256,13 +256,13 @@ void main(){
   this.initializeLamp(this.selected,value);this.changed();return true;
  }
  addAtMarker(index){
-  if(!this.placementPoint)return this.add(index);
-  const [w,h,d]=CATALOG[index].size;
-  const item=this.add(index,new THREE.Vector3(this.placementPoint.x,h/2,this.placementPoint.z));
+  const h=CATALOG[index].size[1];
+  const p=this.placementPoint?new THREE.Vector3(this.placementPoint.x,h/2,this.placementPoint.z):undefined;
+  const item=this.add(index,p);
   if(index===10){item.userData.capacity=4;this.setDiningCapacity(4);}
   if(index===4)this.snapVase(item);
   if(index===14)this.snapToSupport(item);
-  return item;
+  return this.selected||item;
  }
  updatePlacementMarker(time){
   if(!this.placementMarker)return;
