@@ -3,7 +3,11 @@ export const CATALOG=Object.freeze([
  Object.freeze({name:'کاناپه',size:Object.freeze([2.1,.85,.9]),price:4200000}),
  Object.freeze({name:'تک‌نفره',size:Object.freeze([.9,.85,.9]),price:2800000}),
  Object.freeze({name:'میز',size:Object.freeze([1.1,.4,.6]),price:1900000}),
- Object.freeze({name:'تک‌نفره دوم',size:Object.freeze([.9,.85,.9]),price:2800000})
+ Object.freeze({name:'تک‌نفره دوم',size:Object.freeze([.9,.85,.9]),price:2800000}),
+ Object.freeze({name:'گلدان سرامیکی',size:Object.freeze([.25,.4,.25]),price:0}),
+ Object.freeze({name:'کوسن دکوراتیو',size:Object.freeze([.46,.18,.4]),price:0}),
+ Object.freeze({name:'آباژور ایستاده',size:Object.freeze([.45,1.55,.45]),price:0}),
+ Object.freeze({name:'فرش مینیمال',size:Object.freeze([2.4,.015,1.7]),price:0})
 ]);
 export const wrappedAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
 export function pairAngle(a,b){return Math.atan2(-(b.z-a.z),b.x-a.x);}
