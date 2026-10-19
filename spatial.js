@@ -11,7 +11,9 @@ export const CATALOG=Object.freeze([
  Object.freeze({name:'تخت دو نفره',size:Object.freeze([1.65,.95,2.08]),price:0}),
  Object.freeze({name:'میز کار',size:Object.freeze([1.4,.74,.67]),price:0}),
  Object.freeze({name:'میز ناهارخوری',size:Object.freeze([1.7,.75,.86]),price:0}),
- Object.freeze({name:'صندلی ناهارخوری',size:Object.freeze([.48,.90,.47]),price:0})
+ Object.freeze({name:'صندلی ناهارخوری',size:Object.freeze([.48,.90,.47]),price:0}),
+ Object.freeze({name:'میز عسلی مربعی',size:Object.freeze([.48,.48,.48]),price:0}),
+ Object.freeze({name:'میز جلو مبلی مربعی',size:Object.freeze([1.15,.42,1.15]),price:0})
 ]);
 export const wrappedAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
 export function pairAngle(a,b){return Math.atan2(-(b.z-a.z),b.x-a.x);}

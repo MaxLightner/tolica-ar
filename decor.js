@@ -80,5 +80,16 @@ export function createDecor(index,size,color){
   for(const x of [-1,1])for(const z of [-1,1])add(chair,new THREE.CylinderGeometry(.020,.023,.45,6),legs,x*(w/2-.08),-h/2+.225,z*(d/2-.08));
   chair.name='minimal-dining-chair';return chair;
  }
+ if(index===12||index===13){
+  const g=new THREE.BoxGeometry(w,.055,d);
+  g.translate(0,h/2-.0275,0);
+  const table=new THREE.Mesh(g,mat(index===12?'#a9927b':'#ad9279',.65));
+  const legMaterial=mat('#756456',.74);
+  for(const x of [-1,1])for(const z of [-1,1]){
+   add(table,new THREE.CylinderGeometry(.023,.026,h-.07,6),legMaterial,
+    x*(w/2-.085),-.035,z*(d/2-.085));
+  }
+  table.name=index===12?'square-side-table':'large-square-coffee-table';return table;
+ }
  throw Error('Unknown decor index: '+index);
 }

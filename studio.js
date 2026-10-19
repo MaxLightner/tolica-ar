@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
-import {createFurniture,furnitureHit} from './furniture.js?v=0.3.0';
-import {createDecor} from './decor.js?v=0.3.0';
-import {applyRugStyle} from './rug-textures.js?v=0.3.0';
+import {createFurniture,furnitureHit} from './furniture.js?v=0.3.1';
+import {createDecor} from './decor.js?v=0.3.1';
+import {applyRugStyle} from './rug-textures.js?v=0.3.1';
 import {MeasureTool} from './measure-tool.js?v=0.2.8';
 import {requestARSession,xrError} from './xr.js?v=0.2.4';
 import {SpatialState,CATALOG,pairAngle,wrappedAngle} from './spatial.js?v=0.2.4';
@@ -9,6 +9,7 @@ import {FloorScanner,floorCandidates} from './surfaces.js?v=0.2.4';
 import {EnvironmentEffects} from './effects.js?v=0.2.4';
 import {AnchorStabilizer,transformPoint} from './anchor-rig.js?v=0.2.4';
 import {ARDebugView} from './ar-debug.js?v=0.2.6';
+import {buildLayout} from './layout-templates.js?v=0.3.1';
 export const palette=['#b6bca2','#d5c4ad','#b9c4c6','#ba9380'];
 const fa=n=>n.toLocaleString('fa-IR',{maximumFractionDigits:1});
 export class Studio{
@@ -96,7 +97,7 @@ void main(){
   const edges=new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry),new THREE.LineBasicMaterial({color:0x9f927f,transparent:true,opacity:.15,depthWrite:false}));mesh.add(edges);
   const dimensions=`${product.name} · ${product.size.map(v=>fa(v*100)).join(' × ')} cm`;const label=this.makeLabel(dimensions);label.position.y=h/2+.18;label.scale.set(1.5,.22,1);mesh.add(label);
   mesh.userData={...mesh.userData,id,index,height:h,price:product.price,product,edges,label,seats:options.seats||(index===0?3:1)};const defaults=[[0,h/2,-2.1],[2,h/2,-2.1],[.6,h/2,-.9],[2,h/2,-.6],[.3,h/2,-.75],[.3,h/2,-2.1],[2,h/2,-.65],[.9,h/2,-1.5],[.5,h/2,-1.8],[.5,h/2,-1.8],[.5,h/2,-1.7],[.5,h/2,-1.2]];
-  mesh.position.fromArray(defaults[index]);if(position)mesh.position.copy(position);mesh.position.y=h/2;
+  mesh.position.fromArray(defaults[index]||[0,h/2,-1.65]);if(position)mesh.position.copy(position);mesh.position.y=h/2;
   // Transparent radial contact shadow: darkens the camera floor, not a black disc.
   if(index!==7&&index!==5)this.addContactShadow(mesh,w,d,h,index===4?.31:index===6?.48:.68);
   this.root.add(mesh);this.items.push(mesh);
@@ -108,7 +109,7 @@ void main(){
    const sofa=this.items.find(m=>m!==mesh&&(m.userData.index===0||m.userData.index===1));
    if(sofa)mesh.userData.attachment={id:sofa.userData.id,offset:[0,.56+h/2-sofa.userData.height/2,.20]};
   }
-  this.refreshAttachments();this.select(mesh);this.setGuides();return mesh;
+  this.refreshAttachments();if(!options.silentSelect)this.select(mesh);this.setGuides();return mesh;
  }
  addContactShadow(mesh,w,d,h,opacity){
   // Radial darkening decal, alpha blended against the real-world passthrough
@@ -123,40 +124,38 @@ void main(){
   shadow.rotation.x=-Math.PI/2;shadow.position.y=-h/2+.018;shadow.renderOrder=-1;shadow.name='contact-shadow';mesh.add(shadow);
  }
  refreshAttachments(){for(const item of this.items){const link=item.userData.attachment;if(!link)continue;const base=this.items.find(m=>m.userData.id===link.id);if(!base){item.userData.attachment=null;this.keepOnFloor(item);continue;}const offset=new THREE.Vector3(...link.offset).applyAxisAngle(new THREE.Vector3(0,1,0),base.rotation.y);item.position.copy(base.position).add(offset);}}
- seed(kind='calm',room='پذیرایی',people=4){
-  this.clear();if(kind==='empty')return;
-  if(room==='اتاق خواب'){
-   this.add(7,new THREE.Vector3(.5,.0075,-1.8));
-   this.add(8,new THREE.Vector3(.5,.475,-1.85));
-   this.add(6,new THREE.Vector3(-.78,.775,-1.7));
-   this.add(4,new THREE.Vector3(1.65,.2,-2.55));
-  }else if(room==='ناهارخوری'||room==='آشپزخانه'){
-   const seats=[2,4,6,8].includes(people)?people:4;
-   const tableWidth={2:1.05,4:1.35,6:1.85,8:2.35}[seats];
-   const table=this.add(10,new THREE.Vector3(.5,.375,-1.9),{size:[tableWidth,.75,.86]});
-   table.userData.capacity=seats;
-   const perSide=seats/2;
-   for(let i=0;i<perSide;i++)for(const side of [-1,1]){
-    const x=.5+(i-(perSide-1)/2)*.55;
-    const z=-1.9+side*.78;
-    const chair=this.add(11,new THREE.Vector3(x,.45,z));chair.userData.tableId=table.userData.id;chair.rotation.y=side===1?Math.PI:0;
-   }
-   this.add(4);
-  }else if(room==='فضای کار'){
-   this.add(9,new THREE.Vector3(.5,.37,-2.05));
-   this.add(11,new THREE.Vector3(.5,.45,-1.3));
-   this.add(6,new THREE.Vector3(-.7,.775,-2.1));
-   this.add(7,new THREE.Vector3(.5,.0075,-1.7));
-  }else{
-   for(let i=0;i<4;i++)this.add(i);
-   if(kind==='social'){this.items[3].position.set(-1.8,this.items[3].userData.height/2,.2);this.items[3].rotation.y=-Math.PI/3;}
+ seed(kind='conversation',room='پذیرایی',people=5){
+  this.clear();
+  const recipe=buildLayout({room,kind,capacity:people});
+  if(!recipe.items.length)return;
+  const made=[];
+  for(const specification of recipe.items){
+   const product=CATALOG[specification.index];
+   const pos=new THREE.Vector3(specification.x,product.size[1]/2,specification.z);
+   const mesh=this.add(specification.index,pos,{...specification.options,silentSelect:true});
+   mesh.rotation.y=specification.rotation||0;
+   mesh.userData.capacity=specification.options?.capacity||mesh.userData.capacity||null;
+   made.push({mesh,specification});
   }
-  this.select(this.items[0]||null);
+  const dining=made.find(x=>x.mesh.userData.index===10)?.mesh;
+  if(dining)for(const {mesh} of made)if(mesh.userData.index===11)mesh.userData.tableId=dining.userData.id;
+  for(const {mesh} of made)if(mesh.userData.index===4)this.snapVase(mesh);
+  this.select(made.find(x=>[0,1,10,8,9].includes(x.mesh.userData.index))?.mesh||this.items[0]||null);
  }
  select(mesh){this.selected=mesh;
   for(const m of this.items){
    m.userData.edges.material.color.set(m===mesh?'#d3a66e':'#8d7e6d');
    m.userData.edges.material.opacity=m===mesh?.48:.13;
+   if(m.material?.emissive){m.material.emissive.set(m===mesh?'#b79363':'#000000');m.material.emissiveIntensity=m===mesh?.17:0;}
+   if(m.userData.selectionHalo)m.userData.selectionHalo.visible=m===mesh;
+  }
+  if(mesh&&!mesh.userData.selectionHalo){
+   const [w,h,d]=mesh.userData.product.size;
+   const geometry=new THREE.EdgesGeometry(new THREE.BoxGeometry(w+.08,Math.max(.04,h)+.09,d+.08));
+   const halo=new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({
+    color:0xffd49b,transparent:true,opacity:.45,depthTest:false,depthWrite:false
+   }));
+   halo.name='selected-object-halo';halo.renderOrder=17;mesh.add(halo);mesh.userData.selectionHalo=halo;
   }
   this.changed();
  }
@@ -306,7 +305,7 @@ void main(){
  }
  up(e,target){this.points.delete(e.pointerId);if(this.points.size===1&&this.selected){const remaining=[...this.points.values()][0],p=this.pointOnFloor(remaining,target);this.gesture=p?{kind:'object',offset:this.selected.position.clone().sub(this.rootLocal(p))}:null;}else if(!this.points.size){this.gesture=null;this.changed();}}
  cancelGesture(){this.points.clear();this.gesture=null;}
- setGuides(){const show=!this.photoMode;if(this.placementMarker)this.placementMarker.visible=show&&this.model.locked&&this.placementEnabled;if(this.measureTool)this.measureTool.group.visible=show&&this.model.locked&&this.measureTool.active;this.floorNet.visible=show&&(this.model.locked||this.scanner.ready);this.ruler.visible=show&&this.model.locked;for(const m of this.items){m.userData.edges.visible=show;m.userData.label.visible=show;}}
+ setGuides(){const show=!this.photoMode;if(this.placementMarker)this.placementMarker.visible=show&&this.model.locked&&this.placementEnabled;if(this.measureTool)this.measureTool.group.visible=show&&this.model.locked&&this.measureTool.active;this.floorNet.visible=show&&(this.model.locked||this.scanner.ready);this.ruler.visible=show&&this.model.locked;for(const m of this.items){m.userData.edges.visible=show&&m===this.selected;m.userData.label.visible=show;if(m.userData.selectionHalo)m.userData.selectionHalo.visible=show&&m===this.selected;}}
  setPhotoMode(enabled){this.cancelGesture();this.photoMode=enabled;this.setGuides();this.changed();}
  status(message){if(this.lastStatus!==message){this.lastStatus=message;this.onStatus?.(message);}}
  dropAnchor(){this.anchorGeneration++;for(const item of this.anchorNodes)try{item.anchor.delete();}catch{}this.anchorNodes=[];this.anchorCandidates=[];this.anchorActive=false;this.anchorRig=new AnchorStabilizer();this.needsAnchor=false;this.anchorPending=false;this.anchorState='مختصات ثابت';}
@@ -431,9 +430,11 @@ void main(){
   if(this.session&&this.model.locked){
    this.updatePlacementMarker(time);
    if(this.selected?.userData.edges){
-    this.selected.userData.edges.material.opacity=.42+.12*Math.sin(time*.004);
+    this.selected.userData.edges.material.opacity=.38+.10*Math.sin(time*.0035);
+    if(this.selected.userData.selectionHalo)this.selected.userData.selectionHalo.material.opacity=.36+.14*Math.sin(time*.0028);
+    if(this.selected.material?.emissive)this.selected.material.emissiveIntensity=.13+.07*Math.sin(time*.0026);
    }
-   if(time-this.lastSelectionUI>95){this.onSelectionScreen?.(this.selectionScreenPosition());this.lastSelectionUI=time;}
+   if(time-this.lastSelectionUI>32){this.onSelectionScreen?.(this.selectionScreenPosition());this.lastSelectionUI=time;}
   }
   this.scaleLabels();this.renderer.render(this.scene,this.camera);
  }

@@ -1,10 +1,10 @@
 {
   "name": "tolica-ar",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check app.js && node --check studio.js && node --check spatial.js && node --check effects.js && node --check furniture.js && node --check decor.js && node --check measure-tool.js && node --check rug-textures.js"
+    "check": "node --check app.js && node --check studio.js && node --check spatial.js && node --check effects.js && node --check furniture.js && node --check decor.js && node --check measure-tool.js && node --check rug-textures.js && node --check camera-capture.js && node --check layout-templates.js && node --check layout-storage.js"
   }
 }

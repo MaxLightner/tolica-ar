@@ -1,14 +1,17 @@
-import {explainXR} from './xr.js?v=0.3.0';
+import {explainXR} from './xr.js?v=0.3.1';
 import {photos,savePhoto,removePhoto} from './storage.js';
-import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.3.0';
+import {captureARScreen,CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto,ScreenshotUnavailable} from './camera-capture.js?v=0.3.1';
+import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.3.1';
+import {allowedCapacities,layoutOptions,buildLayout,layoutSummary,layoutPreviewSvg} from './layout-templates.js?v=0.3.1';
+import {readDraft,saveDraft,clearDraft,listCustomLayouts,saveCustomLayout,removeCustomLayout} from './layout-storage.js?v=0.3.1';
 const $=s=>document.querySelector(s),app=$('#app'),fa=n=>n.toLocaleString('fa-IR');
-let studio,Scene,palette,space='پذیرایی',layout='calm',supported=false,routeVersion=0,photoURLs=[],savedItems=[],arReport=null,sceneMemory=null,arStarting=false,lastXRErrorReport='';
+let studio,Scene,palette,space='پذیرایی',layout='conversation',supported=false,routeVersion=0,photoURLs=[],savedItems=[],arReport=null,sceneMemory=null,arStarting=false,lastXRErrorReport='';
 const themes=[
  {name:'کرم و چوب',colors:['#cfbeaa','#c9bdae','#aa9882','#d7c8b4']},
  {name:'آبی و کرم',colors:['#7a9196','#d7c5b2','#879fa2','#c3b7a9']},
  {name:'سبز زیتونی',colors:['#909c84','#d4c6b4','#adba9d','#b6a793']}
 ];
-let themeIndex=0,styleChoice='مینیمال',previewEnabled=false,peopleCount=4;
+let themeIndex=0,styleChoice='مینیمال',previewEnabled=false,peopleCount=5;
 const catalogImages=[
  ['کاناپه','<rect x="14" y="24" width="74" height="46" rx="10"/><path d="M16 38h70M32 42v25m37-25v25"/>'],
  ['تک‌نفره','<rect x="27" y="20" width="48" height="54" rx="10"/><path d="M28 40h46"/>'],
@@ -21,36 +24,12 @@ const catalogImages=[
  ['تخت خواب','<rect x="20" y="12" width="60" height="76" rx="4"/><rect x="25" y="25" width="50" height="54" rx="5"/><rect x="27" y="30" width="21" height="15" rx="4"/><rect x="52" y="30" width="21" height="15" rx="4"/>'],
  ['میز کار','<rect x="13" y="25" width="74" height="40" rx="3"/><path d="M22 66v14m56-14v14M25 35h20v20H25z"/>'],
  ['میز ناهارخوری','<rect x="20" y="22" width="60" height="58" rx="8"/><path d="M31 13h38M31 88h38M11 36v30m78-30v30"/>'],
- ['صندلی ناهارخوری','<rect x="29" y="20" width="42" height="58" rx="5"/><path d="M29 36h42M36 68h28"/>']
+ ['صندلی ناهارخوری','<rect x="29" y="20" width="42" height="58" rx="5"/><path d="M29 36h42M36 68h28"/>'],
+ ['میز عسلی مربعی','<rect x="25" y="24" width="50" height="50" rx="5"/><path d="M36 33h28v32H36z"/>'],
+ ['میز جلو مبلی مربعی بزرگ','<rect x="13" y="13" width="74" height="74" rx="6"/><path d="M27 27h46v46H27z"/>']
 ];
 function objectIcon(index){return `<svg viewBox="0 0 100 100" class="object-icon" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">${catalogImages[index]?.[1]||''}</svg>`;}
-function planSketch(kind){
- const sofa=(x,y,w=92,angle=0)=>`<g transform="translate(${x} ${y}) rotate(${angle})"><rect x="0" y="0" width="${w}" height="46" rx="9" fill="#d0bfae" stroke="#8a7e73"/><path d="M7 15h${w-14}M12 19v22M${w-12} 19v22" fill="none" stroke="#a79787"/><rect x="8" y="20" width="${w-16}" height="22" rx="6" fill="#e5dacf" stroke="#ab9a89"/></g>`;
- const table=(x,y)=>`<g transform="translate(${x} ${y})"><rect x="0" y="0" width="55" height="37" rx="6" fill="#a98e77" stroke="#87705d"/><path d="M10 10h35M10 19h35" stroke="#d7c0a9"/></g>`;
- const room=`<rect x="14" y="12" width="290" height="207" rx="9" fill="#f4efe8" stroke="#c6b9ad" stroke-width="5"/><path d="M28 12h82m76 0h60" stroke="#f4efe8" stroke-width="7"/><path d="M122 12h52" stroke="#87b4b0" stroke-width="5"/>`;
- let plan='';
- if(space==='اتاق خواب'){
-  plan=`<rect x="67" y="39" width="186" height="170" rx="13" fill="#e6ded3"/><rect x="100" y="34" width="126" height="160" rx="9" fill="#a78d7b" stroke="#867262" stroke-width="2"/><rect x="105" y="54" width="116" height="134" rx="9" fill="#e7e0d7"/><rect x="114" y="66" width="45" height="34" rx="8" fill="#d0c1b2"/><rect x="168" y="66" width="45" height="34" rx="8" fill="#d0c1b2"/><rect x="45" y="60" width="38" height="45" rx="4" fill="#a98e77"/><rect x="246" y="60" width="38" height="45" rx="4" fill="#a98e77"/>`;
-  return `<svg viewBox="0 0 318 231" role="img" aria-label="پلان اتاق خواب از بالا">${room}${plan}</svg>`;
- }
- if(space==='ناهارخوری'||space==='آشپزخانه'){
-  const count=[2,4,6,8].includes(peopleCount)?peopleCount:4,perSide=count/2;
-  const width={2:85,4:128,6:163,8:197}[count],left=159-width/2;
-  const chair=(x,y)=>`<rect x="${x-14}" y="${y}" width="28" height="25" rx="5" fill="#cbb5a0" stroke="#917e6a"/>`;
-  let seats='';
-  for(let i=0;i<perSide;i++){const x=159+(i-(perSide-1)/2)*(width/perSide);seats+=chair(x,39)+chair(x,179);}
-  plan=`<rect x="38" y="31" width="243" height="183" rx="11" fill="#e2dad0"/><rect x="${left}" y="72" width="${width}" height="100" rx="9" fill="#b9a18a" stroke="#897260"/>${seats}`;
-  return `<svg viewBox="0 0 318 231" role="img" aria-label="پلان میز ${count} نفره از بالا">${room}${plan}</svg>`;
- }
- if(space==='فضای کار'){
-  plan=`<rect x="56" y="52" width="215" height="139" rx="9" fill="#e4d9cb"/><rect x="79" y="35" width="162" height="63" rx="7" fill="#a89077" stroke="#85715c"/><rect x="131" y="120" width="65" height="55" rx="13" fill="#c4b19b" stroke="#8b7765"/><circle cx="59" cy="179" r="15" fill="#8c9d84"/>`;
-  return `<svg viewBox="0 0 318 231" role="img" aria-label="پلان فضای کار از بالا">${room}${plan}</svg>`;
- }
- if(kind==='social')plan=`<rect x="60" y="64" width="186" height="113" rx="12" fill="#e5ded3"/>${sofa(96,43,126)}${sofa(47,176,90,-90)}${sofa(263,90,90,90)}${table(134,107)}`;
- else if(kind==='light')plan=`<rect x="78" y="48" width="172" height="144" rx="13" fill="#e4ded4"/>${sofa(64,63,99)}${sofa(264,63,80,90)}${table(153,112)}<circle cx="52" cy="188" r="14" fill="#849b86"/>`;
- else plan=`<rect x="51" y="70" width="216" height="122" rx="13" fill="#dfd5c7"/>${sofa(77,42,132)}${sofa(66,156,82)}${sofa(255,70,85,90)}${table(144,112)}<circle cx="271" cy="191" r="14" fill="#8ca28c"/>`;
- return `<svg viewBox="0 0 318 231" role="img" aria-label="نقشه چیدمان مبلمان از نمای بالا" xmlns="http://www.w3.org/2000/svg">${room}${plan}</svg>`;
-}
+function planSketch(kind){return layoutPreviewSvg(buildLayout({room:space,kind,capacity:peopleCount}));}
 const sofa=`<path d="M83 184V143q0-15 17-15h123q17 0 17 15v41M83 158H64q-11 0-11 12v51h215v-51q0-12-12-12h-16M78 183h165v24H78zM64 221v15m192-15v15M159 133v46M79 190l-17-22m184 22 13-22"/>`;
 const sketches={
  living:sofa+`<path d="M285 221v-99m-26 0h52l-12-39h-29zM282 221h27M77 261h183l28-20H105z"/>`,
@@ -68,36 +47,72 @@ function heading(step,title,sub,back){return `<div class="page-heading"><div><sp
 async function full(){if(document.fullscreenElement){await document.exitFullscreen();return;}if(!document.documentElement.requestFullscreen){toast('مرورگر شما تمام‌صفحه را پشتیبانی نمی‌کند.');return;}try{await document.documentElement.requestFullscreen();}catch{toast('ورود به تمام‌صفحه ممکن نشد؛ می‌توانی ادامه بدهی.');}}
 $('#fullscreen').onclick=full;document.addEventListener('fullscreenchange',()=>$('#fullscreen').textContent=document.fullscreenElement?'خروج از تمام‌صفحه ↙':'تمام‌صفحه ⛶');
 async function support(){try{supported=!!(isSecureContext&&navigator.xr&&await navigator.xr.isSessionSupported('immersive-ar'));}catch{supported=false;}return supported;}
-async function loadScene(){if(!Scene){const m=await import('./scene.js?v=0.3.0');Scene=m.Studio;palette=m.palette;}}
+async function loadScene(){if(!Scene){const m=await import('./scene.js?v=0.3.1');Scene=m.Studio;palette=m.palette;}}
+let draftTimer=null;
+function currentSceneRecord(){
+ if(!studio)return null;
+ return {scene:studio.exportState(),room:space,layout,capacity:peopleCount,style:styleChoice,theme:themeIndex};
+}
+function persistDraft(){
+ if(!studio)return;
+ try{saveDraft(currentSceneRecord());}catch(error){console.warn('Draft save unavailable',error);}
+}
+function scheduleDraftSave(){
+ clearTimeout(draftTimer);
+ draftTimer=setTimeout(persistDraft,500);
+}
+function loadSceneRecord(record){
+ if(!record?.scene)return;
+ sceneMemory=record.scene;space=record.room||'پذیرایی';layout=record.layout||'conversation';
+ peopleCount=Number(record.capacity)||5;styleChoice=record.style||'مینیمال';themeIndex=record.theme||0;
+}
+window.addEventListener('pagehide',persistDraft);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)persistDraft();});
 function updateObjects(){if(!studio)return;const buttons=studio.items.map(m=>`<button data-object="${m.userData.id}" class="${m===studio.selected?'selected':''}">${m.userData.product.name}</button>`).join('');for(const selector of ['#objects']){const el=$(selector);if(el){el.innerHTML=buttons||'<small>یک قطعه اضافه کن.</small>';el.querySelectorAll('[data-object]').forEach(b=>b.onclick=()=>studio.select(studio.items.find(m=>m.userData.id===+b.dataset.object)));}}
  const mesh=studio.selected,label=mesh?mesh.userData.product.name+' · '+mesh.userData.product.size.map(v=>fa(Math.round(v*100))).join(' × ')+' سانتی‌متر':'یک قطعه را لمس کن';for(const id of ['selection','arSelection']){const el=$('#'+id);if(el)el.textContent=label;}
  const rotation=$('#rotation');if(rotation)rotation.value=mesh?Math.round(mesh.rotation.y*180/Math.PI)%360:0;
  for(const id of ['rotate','delete','rotation']){const el=$('#'+id);if(el)el.disabled=!mesh;}for(const id of ['selectedARTools']){const el=$('#'+id);if(el)el.hidden=!mesh;}
- updateMeasurements();}
+ updateMeasurements();scheduleDraftSave();}
 function updateMeasurements(){if(!studio)return;const m=studio.measurement();for(const id of ['measurement','arMeasurement']){const el=$('#'+id);if(el)el.textContent=`A—B: ${fa(m.measuredCm)} سانتی‌متر اندازه‌گیری‌شده · ضریب ${fa(m.scale)} · طول اصلاح‌شده ${fa(m.correctedCm)} سانتی‌متر`;}}
 function calibrationControls(prefix=''){return `<div class="calibration-controls"><p class="measurement" id="${prefix?'arMeasurement':'measurement'}"></p><label for="${prefix}actual">طول واقعی A—B (۱۰۰ تا ۱۰۰۰ سانتی‌متر)</label><div class="input-row"><input id="${prefix}actual" type="number" inputmode="decimal" min="100" max="1000" step="0.1" placeholder="مثلاً ۱۰۰"><button id="${prefix}calibrate">کالیبره کن</button><button id="${prefix}resetScale">۱:۱</button></div><small>A کل ست را منتقل می‌کند؛ B جهت ست را تغییر می‌دهد. برای کالیبراسیون، نقطه‌ها را روی دو سر یک طول معلوم بگذار.</small></div>`;}
 function bindCalibration(prefix=''){const initial=studio.measurement();if(initial.actualCm!==null)$('#'+prefix+'actual').value=initial.actualCm;const fail=fn=>()=>{try{fn();}catch(error){toast(error.message);}};$('#'+prefix+'calibrate').onclick=fail(()=>{studio.calibrate($('#'+prefix+'actual').value);toast('اندازه و فاصلهٔ همهٔ قطعات با هم اصلاح شد.');});$('#'+prefix+'resetScale').onclick=()=>studio.resetCalibration();}
 function snapshotItems(){savedItems=studio?studio.items.map(m=>({id:m.userData.id,name:m.userData.product.name,price:m.userData.price,color:'#'+m.material.color.getHexString()})):savedItems;}
 function uploadControl(){return `<label class="upload">بارگذاری تصویر +<input id="upload" type="file" accept="image/png,image/jpeg,image/webp" multiple></label>`;}
 async function uploadFiles(e){const files=[...e.target.files];if(files.length>20){toast('هر بار حداکثر ۲۰ تصویر بارگذاری کن.');return;}let count=0;for(const f of files){if(!['image/png','image/jpeg','image/webp'].includes(f.type)||f.size>15*1024*1024){toast('فقط PNG، JPEG و WebP تا ۱۵ مگابایت پذیرفته می‌شود.');continue;}try{const img=await createImageBitmap(f);img.close();await savePhoto(f,'تصویر بارگذاری‌شده');count++;}catch{toast('تصویر خوانده یا ذخیره نشد؛ فضای مرورگر را بررسی کن.');}}if(count){toast(`${fa(count)} تصویر به گالری اضافه شد.`);await render();}e.target.value='';}
-async function render(){const version=++routeVersion;const route=location.hash.slice(1)||'welcome';document.body.dataset.route=route;if(studio?.session){location.hash='studio';return;}if(studio){snapshotItems();sceneMemory=studio.exportState();studio.destroy();studio=null;}photoURLs.forEach(URL.revokeObjectURL);photoURLs=[];
- if(route==='welcome'){app.innerHTML=`<section class="welcome-screen"><div class="welcome-title"><h1>TOLICA</h1><p>خانه را جور دیگری ببینید</p></div><img class="welcome-photo" src="assets/welcome.png" alt="صندلی کرم و گلدان در فضایی آرام"><div class="welcome-bottom"><button class="primary" id="welcome">ورود به نمایشگاه <span>→</span></button><button class="quick-ar" id="quickAR">ورود سریع به AR ↗</button><span class="welcome-wordmark">TOLICA</span></div></section>`;$('#welcome').onclick=()=>{full();location.hash='spaces';};$('#quickAR').onclick=()=>{layout='calm';sceneMemory=null;location.hash='studio';};return;}
+async function render(){const version=++routeVersion;const route=location.hash.slice(1)||'welcome';document.body.dataset.route=route;if(studio?.session){location.hash='studio';return;}if(studio){persistDraft();snapshotItems();sceneMemory=studio.exportState();studio.destroy();studio=null;}photoURLs.forEach(URL.revokeObjectURL);photoURLs=[];
+ if(route==='welcome'){app.innerHTML=`<section class="welcome-screen"><div class="welcome-title"><h1>TOLICA</h1><p>خانه را جور دیگری ببینید</p></div><img class="welcome-photo" src="assets/welcome.png" alt="صندلی کرم و گلدان در فضایی آرام"><div class="welcome-bottom"><button class="primary" id="welcome">ورود به نمایشگاه <span>→</span></button><button class="quick-ar" id="quickAR">ورود سریع به AR ↗</button><span class="welcome-wordmark">TOLICA</span></div></section>`;$('#welcome').onclick=()=>{full();location.hash='spaces';};const draft=readDraft();if(draft)$('#quickAR').textContent='ادامه چیدمان قبلی ↗';$('#quickAR').onclick=()=>{if(draft)loadSceneRecord(draft);else {layout='conversation';sceneMemory=null;}location.hash='studio';};return;}
  if(route==='spaces'){app.innerHTML=`<section class="page rooms-page">${heading('۰۱ / فضای شما','کدام فضا را می‌خواهی بچینی؟','فضا، سبک و رنگ دلخواهت را انتخاب کن.','welcome')}
  <div class="cards room-choice">${[['living','پذیرایی','برای کنار هم بودن'],['dining','ناهارخوری','دور یک میز، کنار هم'],['dining','آشپزخانه','میز غذاخوری و دورهمی'],['bedroom','اتاق خواب','گوشه‌ای برای آرامش'],['office','فضای کار','جایی برای ایده‌های تازه']].map(([key,title,sub])=>`<button class="card ${space===title?'selected':''}" data-space="${title}" aria-pressed="${space===title}">${svg(key)}<strong>${title}</strong><small>${sub}</small></button>`).join('')}</div>
  <section class="room-prefs"><div class="pref-heading">سبک چیدمان <small>اختیاری</small></div><div class="style-pills">${['مینیمال','مدرن','کلاسیک','همه'].map(n=>`<button data-style="${n}" class="${styleChoice===n?'selected':''}">${n}</button>`).join('')}</div>
- <div class="pref-heading">ظرفیت چیدمان <small>تعداد نفرات</small></div><div class="people-picks">${[2,4,6,8].map(n=>`<button data-people="${n}" class="${peopleCount===n?'selected':''}" aria-pressed="${peopleCount===n}">${fa(n)} نفر</button>`).join('')}</div>
+ <div class="pref-heading">ظرفیت چیدمان <small>تعداد نفرات</small></div><div class="people-picks">${allowedCapacities(space).map(n=>`<button data-people="${n}" class="${peopleCount===n?'selected':''}" aria-pressed="${peopleCount===n}">${fa(n)} نفر</button>`).join('')}</div>
  <div class="pref-heading">پالت رنگ <small>بعداً قابل تغییر است</small></div><div class="theme-picks">${themes.map((t,i)=>`<button data-theme="${i}" class="${themeIndex===i?'selected':''}" aria-label="${t.name}"><span class="theme-blocks">${t.colors.map(c=>`<i style="background:${c}"></i>`).join('')}</span><small>${t.name}</small></button>`).join('')}</div></section>
  <button class="primary continue-room" id="goLayouts">دیدن چیدمان‌ها ←</button></section>`;
- document.querySelectorAll('[data-space]').forEach(btn=>btn.onclick=()=>{space=btn.dataset.space;document.querySelectorAll('[data-space]').forEach(el=>{el.classList.toggle('selected',el===btn);el.setAttribute('aria-pressed',String(el===btn));});});
+ document.querySelectorAll('[data-space]').forEach(btn=>btn.onclick=()=>{space=btn.dataset.space;peopleCount=allowedCapacities(space)[0];render();});
  document.querySelectorAll('[data-style]').forEach(btn=>btn.onclick=()=>{styleChoice=btn.dataset.style;document.querySelectorAll('[data-style]').forEach(el=>el.classList.toggle('selected',el===btn));});
  document.querySelectorAll('[data-people]').forEach(btn=>btn.onclick=()=>{peopleCount=Number(btn.dataset.people);document.querySelectorAll('[data-people]').forEach(el=>{el.classList.toggle('selected',el===btn);el.setAttribute('aria-pressed',String(el===btn));});});
  document.querySelectorAll('[data-theme]').forEach(btn=>btn.onclick=()=>{themeIndex=Number(btn.dataset.theme);document.querySelectorAll('[data-theme]').forEach(el=>el.classList.toggle('selected',el===btn));});
  $('#goLayouts').onclick=()=>location.hash='layouts';return;}
- if(route==='layouts'){app.innerHTML=`<section class="page layouts-page">${heading('۰۲ / چیدمان','یک پلان انتخاب کن','نمای بالا · ${fa(peopleCount)} نفر · سبک ${styleChoice} · ${themes[themeIndex].name}','spaces')}
- <div class="layout-feed">${[['calm','چیدمان متعادل','برای فضای خانوادگی'],['social','چیدمان گفتگو','نشستن روبه‌روی هم'],['light','چیدمان باز','فضای آزادتر برای رفت‌وآمد']].map(([id,title,sub],i)=>`<button class="layout-photo-card" data-layout="${id}"><div class="layout-image floor-plan-card">${planSketch(id)}<span class="layout-badge">${fa(i+1).padStart(2,'۰')}</span></div><div class="layout-caption"><strong>${title}</strong><small>${sub}</small><span>←</span></div></button>`).join('')}
- <button class="start-blank" data-layout="empty"><span>＋</span><strong>شروع با فضای خالی</strong><small>از ابتدا بچین</small></button></div></section>`;
- document.querySelectorAll('[data-layout]').forEach(btn=>btn.onclick=()=>{layout=btn.dataset.layout;sceneMemory=null;previewEnabled=false;location.hash='studio';});return;}
-  if(route==='detail'){app.innerHTML=`<section class="page detail-page"><a class="back" href="#layouts">بازگشت ←</a><img class="detail-photo" src="assets/living.png" alt="چیدمان مبلمان کرم در فضای نشیمن"><div class="dots"><i></i><i></i><i></i></div><h1>${layout==='social'?'چیدمان صمیمی':layout==='light'?'چیدمان سبک و روشن':'چیدمان کلاسیک ۱'}</h1><p>یک ایده برای ${space}؛ با ترکیبی از حجم‌های متنوع و رنگ‌های طبیعی.</p><p class="prototype-note">در محیط آزمایشی مبلمان کم‌پلیگان با ابعاد واقعی جایگزین مدل مبلمان می‌شوند.</p><button id="continueLayout" class="primary">ادامهٔ چیدمان و ویرایش <span>→</span></button></section>`;$('#continueLayout').onclick=()=>location.hash='studio';return;}
+ if(route==='layouts'){
+ const variants=layoutOptions(space);
+ app.innerHTML=`<section class="page layouts-page">
+ ${heading('۰۲ / چیدمان','چیدمان مناسب ${fa(peopleCount)} نفر را انتخاب کن',
+ 'تمام پلان‌ها به آبجکت‌های واقعیِ مرحله AR متصل‌اند · ${styleChoice} · ${themes[themeIndex].name}','spaces')}
+ <div class="layout-feed">${variants.map(({id,title,description},i)=>{
+  const scene=buildLayout({room:space,kind:id,capacity:peopleCount}),stats=layoutSummary(scene);
+  const details=space==='پذیرایی'?`${fa(stats.seats)} جای نشستن · ${fa(stats.tables)} میز`:
+   space==='آشپزخانه'||space==='ناهارخوری'?`${fa(stats.chairs)} صندلی · میز ${fa(peopleCount)} نفره`:
+   `${fa(stats.objects)} قطعه در چیدمان`;
+  return `<button class="layout-photo-card" data-layout="${id}">
+   <div class="layout-image floor-plan-card">${layoutPreviewSvg(scene)}<span class="layout-badge">${fa(i+1)}</span></div>
+   <div class="layout-caption"><strong>${title}</strong><small>${description} · ${details}</small><span>←</span></div>
+   </button>`;
+ }).join('')}
+ <button class="start-blank" data-layout="empty"><span>＋</span><strong>چیدمان دلخواه من</strong><small>شروع با فضای خالی</small></button>
+ ${listCustomLayouts().filter(x=>x.room===space).map(saved=>`<button class="saved-layout-card" data-saved-layout="${saved.id}">▤ <strong>${saved.name.replaceAll('<','&lt;')}</strong><small>چیدمان ذخیره‌شده · ${fa(saved.capacity)} نفر</small></button>`).join('')}
+ </div></section>`;
+ document.querySelectorAll('[data-layout]').forEach(btn=>btn.onclick=()=>{layout=btn.dataset.layout;sceneMemory=null;previewEnabled=false;clearDraft();location.hash='studio';});
+ document.querySelectorAll('[data-saved-layout]').forEach(btn=>btn.onclick=()=>{const data=listCustomLayouts().find(x=>x.id===btn.dataset.savedLayout);if(!data)return;loadSceneRecord(data);location.hash='studio';});return;}
+   if(route==='detail'){app.innerHTML=`<section class="page detail-page"><a class="back" href="#layouts">بازگشت ←</a><img class="detail-photo" src="assets/living.png" alt="چیدمان مبلمان کرم در فضای نشیمن"><div class="dots"><i></i><i></i><i></i></div><h1>${layout==='social'?'چیدمان صمیمی':layout==='light'?'چیدمان سبک و روشن':'چیدمان کلاسیک ۱'}</h1><p>یک ایده برای ${space}؛ با ترکیبی از حجم‌های متنوع و رنگ‌های طبیعی.</p><p class="prototype-note">در محیط آزمایشی مبلمان کم‌پلیگان با ابعاد واقعی جایگزین مدل مبلمان می‌شوند.</p><button id="continueLayout" class="primary">ادامهٔ چیدمان و ویرایش <span>→</span></button></section>`;$('#continueLayout').onclick=()=>location.hash='studio';return;}
  if(route==='entry'){app.innerHTML=`<section class="page">${heading('۰۳ / ورود به تجربه','حالا در خانه‌ات ببین.','چند قدم تا امتحان کردن چیدمان فاصله داری.','layouts')}<div class="entry"><div><h2>فضای واقعی، انتخاب تازه</h2><p>در محیطی روشن، گوشی را آرام به سمت کف بگیر. پس از نمایش کف پیشنهادی، «تثبیت این کف» را بزن و خط A–B را روی یک طول معلوم بگذار.</p><div id="support" class="notice">در حال بررسی سازگاری مرورگر…</div><div class="entry-actions"><button id="enterAR" class="primary" disabled>ورود به AR ↗</button><button id="preview">محیط آزمایشی</button></div><p>نیازمند Android Chrome، گوشی سازگار با ARCore، اتصال امن و اجازهٔ دسترسی به دوربین. ورود به AR فقط با لمس دکمه انجام می‌شود.</p></div><div class="entry-illustration">${svg('phone')}</div></div><div class="notice">برای ثبت تصویر ترکیبی AR از اسکرین‌شات خود گوشی استفاده کن، سپس آن را در گالری بارگذاری کن. ثبت مستقیم دوربین از بوم سه‌بعدی در این نسخه انجام نمی‌شود.</div></section>${footer()}`;$('#preview').onclick=()=>location.hash='studio';await support();if(version!==routeVersion)return;$('#support').textContent=supported?'AR در این مرورگر در دسترس است. مجوزها و ردیابی هنگام شروع بررسی می‌شوند.':'AR در این دستگاه یا مرورگر در دسترس نیست. محیط آزمایشی را باز کن، یا با Chrome روی Android سازگار امتحان کن.';$('#enterAR').disabled=!supported;$('#enterAR').onclick=()=>{location.hash='studio';toast('محیط آماده می‌شود؛ سپس «شروع AR» را بزن.');};return;}
  if(route==='studio'){app.innerHTML=`<section class="ar-launch">
  <div id="viewport" class="viewport ar-launch-stage"><div class="launch-placeholder onboarding"><div class="launch-mark">TOLICA · AR</div><div class="launch-plan">${planSketch(layout==='empty'?'light':layout)}</div><h2>سه حرکت تا دیدن چیدمان</h2>
@@ -113,15 +128,31 @@ async function render(){const version=++routeVersion;const route=location.hash.s
   studio=new Scene($('#viewport'),updateObjects);
   if(sceneMemory)studio.restoreState(sceneMemory);else{studio.seed(layout,space,peopleCount);const colors=themes[themeIndex].colors;studio.items.forEach((m,i)=>{if(m.userData.index!==7)m.material.color.set(colors[i%colors.length]);});}
   studio.onEnd=()=>{setPhotoMode(false);closeArSheet();$('#arDock').hidden=true;$('#objectQuick').hidden=true;$('#scanReadiness').hidden=true;$('#measureHint').hidden=true;};
-  studio.onPhotoTap=revealPhotoExit;
+  studio.onPhotoTap=()=>{};
   studio.onHint=toast;
+  let quickSmoothed=null,quickLastSelected=null;
   studio.onSelectionScreen=position=>{
    const quick=$('#objectQuick');if(!quick)return;
-   if(!position||!studio?.selected||!studio?.session||studio.photoMode||!$('#arToolSheet').hidden||studio.placementEnabled){quick.hidden=true;return;}
+   const selected=studio?.selected;
+   if(!position||!selected||!studio?.session||studio.photoMode||!$('#arToolSheet').hidden||studio.placementEnabled){
+    quick.hidden=true;quickSmoothed=null;quickLastSelected=null;return;
+   }
+   const targetX=Math.max(50,Math.min(window.innerWidth-50,position.x+(position.x>window.innerWidth*.62?-76:76)));
+   const targetY=Math.max(125,Math.min(window.innerHeight-132,position.y));
+   if(selected!==quickLastSelected||!quickSmoothed){
+    quickSmoothed={x:targetX,y:targetY};quickLastSelected=selected;
+   }else{
+    const distance=Math.hypot(targetX-quickSmoothed.x,targetY-quickSmoothed.y);
+    if(distance>145){quickSmoothed.x=targetX;quickSmoothed.y=targetY;}
+    else{
+     const alpha=distance>35?.23:.11;
+     quickSmoothed.x+=(targetX-quickSmoothed.x)*alpha;
+     quickSmoothed.y+=(targetY-quickSmoothed.y)*alpha;
+    }
+   }
+   if(!quick.hidden&&Math.hypot(Number.parseFloat(quick.style.left)-quickSmoothed.x,Number.parseFloat(quick.style.top)-quickSmoothed.y)<1.5)return;
    quick.hidden=false;
-   const x=Math.max(50,Math.min(window.innerWidth-50,position.x+(position.x>window.innerWidth*.62?-76:76)));
-   const y=Math.max(125,Math.min(window.innerHeight-132,position.y));
-   quick.style.left=x+'px';quick.style.top=y+'px';
+   quick.style.left=Math.round(quickSmoothed.x)+'px';quick.style.top=Math.round(quickSmoothed.y)+'px';
   };
   studio.debugView.onUpdate=()=>{if(debugEnabled)refreshDebugPanel();};
   studio.setMeasureHandler((m,awaitSecond)=>$('#measureReadout').textContent=awaitSecond?'نقطه دوم را روی کف لمس کن':m===null?'نقطه اول را روی کف لمس کن':m.toFixed(2)+' متر');
@@ -184,7 +215,11 @@ function showArSheet(mode){
     <button class="ar-list-select" data-select-id="${m.userData.id}">${objectIcon(m.userData.index)}<span>${m.userData.product.name}</span></button>
     <button data-show-id="${m.userData.id}" aria-label="${m.visible?'پنهان کردن':'نمایش دادن'}">${m.visible?'◉':'◌'}</button>
     <button data-delete-id="${m.userData.id}" aria-label="حذف">×</button>
-   </div>`).join('')}</div><small class="sheet-tip">با ◉ نمایش را خاموش یا روشن کن؛ × آبجکت را حذف می‌کند.</small>`;
+   </div>`).join('')}</div><div class="custom-save-row"><input id="customLayoutName" maxlength="70" placeholder="نام چیدمان من" aria-label="نام چیدمان سفارشی"><button id="saveCustomLayout">ذخیره چیدمان</button></div><small class="sheet-tip">با ◉ نمایش را خاموش یا روشن کن؛ × آبجکت را حذف می‌کند. چیدمان فعلی هم خودکار ذخیره می‌شود.</small>`;
+  $('#saveCustomLayout').onclick=()=>{
+   try{const saved=saveCustomLayout({...currentSceneRecord(),name:$('#customLayoutName').value});toast('چیدمان «'+saved.name+'» ذخیره شد.');}
+   catch{toast('ذخیره چیدمان در این مرورگر ممکن نشد.');}
+  };
   const refresh=()=>{closeArSheet();showArSheet('objects');};
   body.querySelectorAll('[data-select-id]').forEach(btn=>btn.onclick=()=>{studio.select(studio.items.find(m=>m.userData.id===Number(btn.dataset.selectId)));refresh();});
   body.querySelectorAll('[data-show-id]').forEach(btn=>btn.onclick=()=>{const id=Number(btn.dataset.showId),mesh=studio.items.find(m=>m.userData.id===id);studio.setItemVisible(id,!mesh.visible);refresh();});
@@ -203,32 +238,6 @@ function showArSheet(mode){
    body.querySelectorAll('[data-sofa-seats]').forEach(btn=>btn.onclick=()=>{studio.setSofaSeats(Number(btn.dataset.sofaSeats));closeArSheet();showArSheet('features');});
   }else if(index===7){closeArSheet();showArSheet('colors');return;}
   else body.innerHTML='<p class="sheet-tip">برای این آبجکت می‌توانی رنگ، جایگاه و مدل را تغییر بدهی. قابلیت‌های بیشتر بعداً اضافه می‌شوند.</p>';
- }else if(mode==='camera'){
-  title.textContent='دوربین و گالری تولیکا';
-  body.innerHTML=`<div class="camera-actions">
-   <button id="photoCleanMode">◎ ثبت عکس از صفحه دستگاه</button>
-   <label>＋ افزودن اسکرین‌شات به گالری<input id="arUploadPhoto" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
-  </div><div id="inlineGallery" class="inline-gallery"><small>در حال بارگذاری عکس‌ها…</small></div>
-  <small class="sheet-tip">مرورگر فعلاً تصویر واقعی دوربین WebXR را همراه مبلمان به‌صورت فایل مستقیم ارائه نمی‌دهد. در حالت عکاسی با دکمه اسکرین‌شات گوشی عکس بگیر و آن را به گالری اضافه کن.</small>`;
-  $('#photoCleanMode').onclick=()=>{closeArSheet();setPhotoMode(true);};
-  $('#arUploadPhoto').onchange=async e=>{
-   const file=e.target.files?.[0];if(!file)return;
-   if(file.size>15*1024*1024){toast('عکس باید کمتر از ۱۵ مگابایت باشد.');return;}
-   try{await savePhoto(file,'اسکرین‌شات تولیکا');closeArSheet();showArSheet('camera');}
-   catch(error){toast('ذخیره عکس ممکن نشد.');}
-  };
-  photos().then(list=>{
-   if(arSheetMode!=='camera'||!$('#inlineGallery'))return;
-   const gallery=$('#inlineGallery');gallery.innerHTML='';
-   const latest=list.sort((a,b)=>b.date-a.date).slice(0,12);
-   if(!latest.length){gallery.textContent='هنوز عکسی ذخیره نشده است.';return;}
-   for(const photo of latest){
-    const url=URL.createObjectURL(photo.blob);photoURLs.push(url);
-    const btn=document.createElement('button');btn.className='inline-photo';
-    const img=document.createElement('img');img.src=url;img.alt='تصویر ذخیره‌شده';btn.append(img);
-    btn.onclick=()=>openArPhotoEditor(photo.blob);gallery.append(btn);
-   }
-  }).catch(()=>{$('#inlineGallery').textContent='گالری در دسترس نیست.';});
  }else if(mode==='settings'){
   title.textContent='تنظیمات AR و جهت چیدمان';
   const details=$('#arSettings');details.hidden=false;details.open=true;body.append(details);
@@ -236,50 +245,6 @@ function showArSheet(mode){
   const note=document.createElement('small');note.className='sheet-tip';note.textContent='تنظیمات عمق و نور بعد از شروع دوباره AR اعمال می‌شوند؛ A—B مستقل از خط‌کش مجازی است.';body.append(note);
  }
  $('#arToolSheet').hidden=false;
-}
-async function openArPhotoEditor(blob){
- if(!blob)return;
- const el=$('#arSheetContent');$('#arSheetTitle').textContent='تنظیم قاب عکس';
- const original=URL.createObjectURL(blob);photoURLs.push(original);
- el.innerHTML=`<div class="photo-edit-preview"><img id="photoRatioPreview" src="${original}" alt="پیش‌نمایش عکس"></div>
- <div class="ratio-pills">${[['9:16',9/16],['3:4',3/4],['1:1',1],['4:3',4/3],['16:9',16/9]].map(([n,r])=>`<button data-photo-ratio="${r}" class="${n==='4:3'?'selected':''}">${n}</button>`).join('')}</div>
- <div class="camera-actions"><button id="saveRatioPhoto">ذخیره نسخه با قاب جدید</button><button id="shareToAI">اشتراک با برنامه AI ↗</button></div>
- <small class="sheet-tip">تغییر نسبت تصویر، فقط کادر موجود را برش می‌دهد؛ نشان دادن بخش‌های خارج از عکس نیازمند Generative Expand است. برای ارسال، برنامه مقصد را از منوی اشتراک دستگاه انتخاب کن.</small>`;
- let currentBlob=null,working=false;
- const crop=async ratio=>{
-  working=true;$('#saveRatioPhoto').disabled=true;$('#shareToAI').disabled=true;
-  const bitmap=await createImageBitmap(blob);
-  const sw=Math.min(bitmap.width,bitmap.height*ratio),sh=Math.min(bitmap.height,bitmap.width/ratio);
-  const width=Math.round(Math.min(1600,sw)),height=Math.round(width/ratio);
-  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
-  const context=canvas.getContext('2d');context.drawImage(bitmap,(bitmap.width-sw)/2,(bitmap.height-sh)/2,sw,sh,0,0,width,height);
-  bitmap.close();
-  currentBlob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.85));
-  $('#photoRatioPreview').style.aspectRatio=ratio;
-  $('#photoRatioPreview').style.objectFit='cover';
-  working=false;$('#saveRatioPhoto').disabled=false;$('#shareToAI').disabled=false;
- };
- el.querySelectorAll('[data-photo-ratio]').forEach(btn=>btn.onclick=()=>{
-  el.querySelectorAll('[data-photo-ratio]').forEach(b=>b.classList.toggle('selected',b===btn));
-  crop(Number(btn.dataset.photoRatio)).catch(()=>toast('تنظیم قاب انجام نشد.'));
- });
- await crop(4/3);
- $('#saveRatioPhoto').onclick=async()=>{
-  if(working||!currentBlob)return;
-  try{await savePhoto(currentBlob,'عکس با نسبت تصویر اصلاح‌شده');toast('نسخه اصلاح‌شده در گالری ذخیره شد.');}
-  catch{toast('ذخیره عکس انجام نشد.');}
- };
- $('#shareToAI').onclick=()=>{
-  if(working||!currentBlob)return;
-  const file=new File([currentBlob],'tolica-composition.jpg',{type:'image/jpeg'});
-  if(navigator.canShare?.({files:[file]})&&navigator.share){
-   navigator.share({files:[file],title:'TOLICA · چیدمان'}).catch(()=>{});
-  }else{
-   const url=URL.createObjectURL(file),a=document.createElement('a');
-   a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
-   toast('عکس آماده شد؛ برای ارسال به هوش مصنوعی، آن را در برنامه مقصد بارگذاری کن.');
-  }
- };
 }
 $('#arSheetClose').onclick=closeArSheet;
 $('#arAddTool').onclick=()=>showArSheet('add');
@@ -291,7 +256,7 @@ $('#quickRotate').onclick=()=>studio?.rotate();
 $('#quickDelete').onclick=()=>{studio?.remove();};
 $('#arListTool').onclick=()=>showArSheet('objects');
 $('#arSettingsTool').onclick=()=>showArSheet('settings');
-$('#arPhotoTool').onclick=()=>showArSheet('camera');
+$('#arPhotoTool').onclick=()=>setPhotoMode(true);
 $('#arRulerTool').onclick=()=>{
  if(!studio||!studio.placed)return;
  closeArSheet();
@@ -329,7 +294,7 @@ function handleARReport(report){
  if(!report.placed){closeArSheet();$('#measureHint').hidden=true;}
  updateMeasurements();
 }
-async function startAR(basic=false){if(!studio||studio.session||arStarting)return;arStarting=true;const button=$('#startAR');button.disabled=true;$('#arError').close();try{$('#overlay').hidden=false;$('#confirmFloor').hidden=false;$('#confirmFloor').disabled=true;$('#arEditControls').hidden=true;$('#arDock').hidden=true;$('#objectQuick').hidden=true;$('#scanReadiness').hidden=false;$('#scanProgress').value=12;$('#scanStage').textContent='راه‌اندازی AR…';$('#scanPercent').textContent='۱۲٪';closeArSheet();$('#arSettings').hidden=true;$('#arStatus').textContent='در حال شناسایی کف…';const result=await studio.startAR(message=>$('#arStatus').textContent=message,handleARReport,basic,{light:!basic&&$('#lightEnabled').checked,depth:!basic&&$('#depthEnabled').checked});if(!result.hasOverlay)$('#overlay').hidden=true;studio.setDebugVisible(debugEnabled);updateObjects();}catch(error){$('#overlay').hidden=true;$('#arDock').hidden=true;const failure=explainXR(error);lastXRErrorReport=JSON.stringify({version:'0.3.0',mode:basic?'basic':'full',stage:failure.stage,name:failure.name,message:failure.detail,secureContext:isSecureContext,webXR:!!navigator.xr,supportCheck:supported,userAgent:navigator.userAgent},null,2);$('#arErrorMessage').textContent=failure.message;$('#arErrorDetails').textContent=lastXRErrorReport;$('#arError').showModal();console.error(error);}finally{arStarting=false;button.disabled=false;}}
+async function startAR(basic=false){if(!studio||studio.session||arStarting)return;arStarting=true;const button=$('#startAR');button.disabled=true;$('#arError').close();try{$('#overlay').hidden=false;$('#confirmFloor').hidden=false;$('#confirmFloor').disabled=true;$('#arEditControls').hidden=true;$('#arDock').hidden=true;$('#objectQuick').hidden=true;$('#scanReadiness').hidden=false;$('#scanProgress').value=12;$('#scanStage').textContent='راه‌اندازی AR…';$('#scanPercent').textContent='۱۲٪';closeArSheet();$('#arSettings').hidden=true;$('#arStatus').textContent='در حال شناسایی کف…';const result=await studio.startAR(message=>$('#arStatus').textContent=message,handleARReport,basic,{light:!basic&&$('#lightEnabled').checked,depth:!basic&&$('#depthEnabled').checked});if(!result.hasOverlay)$('#overlay').hidden=true;studio.setDebugVisible(debugEnabled);updateObjects();}catch(error){$('#overlay').hidden=true;$('#arDock').hidden=true;const failure=explainXR(error);lastXRErrorReport=JSON.stringify({version:'0.3.1',mode:basic?'basic':'full',stage:failure.stage,name:failure.name,message:failure.detail,secureContext:isSecureContext,webXR:!!navigator.xr,supportCheck:supported,userAgent:navigator.userAgent},null,2);$('#arErrorMessage').textContent=failure.message;$('#arErrorDetails').textContent=lastXRErrorReport;$('#arError').showModal();console.error(error);}finally{arStarting=false;button.disabled=false;}}
 let debugEnabled=false;
 function refreshDebugPanel(){
  const panel=$('#arDebugPanel');if(!panel||panel.hidden||!studio)return;
@@ -355,7 +320,7 @@ function saveDebugJSON(){
 function openGitHubDebugIssue(){
  if(!studio)return;
  const data=studio.debugExport(),last=studio.debugView.lastState;
- const body=['## TOLICA AR diagnostic report','Version: v0.3.0','Started: '+(data.startedAt||'unknown'),'','### Latest readout','```',studio.debugView.summary(),'```','','### Events','```',JSON.stringify(data.events.slice(-12),null,2),'```','','### Device test notes','(Describe whether the floor was above or below the carpet.)','','The full time-series log is available via the Save JSON button. Attach it manually if needed.'].join('\\n');
+ const body=['## TOLICA AR diagnostic report','Version: v0.3.1','Started: '+(data.startedAt||'unknown'),'','### Latest readout','```',studio.debugView.summary(),'```','','### Events','```',JSON.stringify(data.events.slice(-12),null,2),'```','','### Device test notes','(Describe whether the floor was above or below the carpet.)','','The full time-series log is available via the Save JSON button. Attach it manually if needed.'].join('\\n');
  const url='https://github.com/MaxLightner/tolica-ar/issues/new?title='+encodeURIComponent('AR floor detection debug report')+'&body='+encodeURIComponent(body);
  window.open(url,'_blank','noopener');
 }
@@ -363,10 +328,109 @@ $('#debugToggle').onclick=()=>setDebug(!debugEnabled);
 $('#debugHide').onclick=()=>setDebug(false);
 $('#debugSave').onclick=saveDebugJSON;
 $('#debugGithub').onclick=openGitHubDebugIssue;
-let photoTimer;
-function revealPhotoExit(){$('#photoReturn').classList.add('revealed');clearTimeout(photoTimer);photoTimer=setTimeout(()=>$('#photoReturn').classList.remove('revealed'),3000);}
-function setPhotoMode(enabled){if(!studio)return;studio.setPhotoMode(enabled);$('#overlay').classList.toggle('photography',enabled);$('#photoReturn').hidden=!enabled;if(enabled){revealPhotoExit();toast('پس از ۳ ثانیه ابزارها مخفی می‌شوند؛ اسکرین‌شات گوشی بگیر. برای بازگشت صفحه را لمس کن.');}else{clearTimeout(photoTimer);$('#photoReturn').classList.remove('revealed');}}
-$('#photoReturn').onclick=()=>setPhotoMode(false);$('#photoAR').onclick=()=>setPhotoMode(true);
+let cameraObjectURLs=[],cameraBusy=false,cameraActive=false;
+function cameraPhotoURL(blob){
+ const url=URL.createObjectURL(blob);cameraObjectURLs.push(url);return url;
+}
+function clearCameraURLs(){cameraObjectURLs.forEach(URL.revokeObjectURL);cameraObjectURLs=[];}
+async function cameraShots(){
+ // Imported images, device gallery photos and earlier uploads are not shown here.
+ return (await photos()).filter(photo=>isCameraPhoto(photo)).sort((a,b)=>b.date-a.date);
+}
+async function updateCameraLast(){
+ if(!cameraActive)return;
+ try{
+  const latest=(await cameraShots())[0],image=$('#cameraLastImage'),placeholder=$('#cameraLastPlaceholder');
+  clearCameraURLs();
+  image.hidden=!latest;placeholder.hidden=!!latest;
+  if(latest)image.src=cameraPhotoURL(latest.blob);else image.removeAttribute('src');
+ }catch{cameraNotice('دسترسی به عکس‌های تولیکا ممکن نیست.');}
+}
+function cameraNotice(message){
+ const el=$('#cameraNotice');el.textContent=message;el.hidden=false;
+}
+function setPhotoMode(enabled){
+ if(!studio)return;
+ cameraActive=!!enabled;
+ if(enabled){
+  closeArSheet();
+  $('#cameraGallery').hidden=true;
+  $('#cameraMode').classList.remove('gallery-open','capturing');
+  $('#cameraNotice').hidden=true;
+  studio.setPlacementEnabled(false);
+ }
+ studio.setPhotoMode(enabled);
+ $('#overlay').classList.toggle('photography',enabled);
+ $('#cameraMode').hidden=!enabled;
+ $('#objectQuick').hidden=true;
+ if(enabled){updateCameraLast();setCameraRatio();}else{
+  $('#cameraGallery').hidden=true;
+  $('#cameraMode').classList.remove('gallery-open','capturing');
+  clearCameraURLs();
+ }
+}
+function setCameraRatio(){
+ const ratio=CAMERA_RATIOS[$('#cameraRatio').value]||4/3;
+ $('#cameraFraming').style.aspectRatio=ratio;
+ $('#cameraFraming').style.setProperty('--frame-ratio',String(ratio));
+}
+$('#cameraRatio').onchange=setCameraRatio;
+$('#cameraClose').onclick=()=>setPhotoMode(false);
+$('#cameraGalleryBack').onclick=()=>{
+ $('#cameraGallery').hidden=true;$('#cameraMode').classList.remove('gallery-open');
+};
+$('#cameraLast').onclick=()=>openCameraGallery();
+async function openCameraGallery(){
+ if(!cameraActive)return;
+ $('#cameraGallery').hidden=false;$('#cameraMode').classList.add('gallery-open');
+ const host=$('#cameraGalleryItems');host.replaceChildren();
+ try{
+  const shots=await cameraShots();
+  if(!cameraActive||$('#cameraGallery').hidden)return;
+  $('#cameraGalleryCount').textContent=fa(shots.length);
+  if(!shots.length){
+   host.textContent='هنوز عکسی با شاتر تولیکا ثبت نشده است.';
+   return;
+  }
+  for(const record of shots){
+   const card=document.createElement('article');card.className='camera-shot-card';
+   const img=document.createElement('img');img.src=cameraPhotoURL(record.blob);img.alt='عکس تولیکا';
+   const actions=document.createElement('div');actions.className='camera-shot-actions';
+   const download=document.createElement('a');download.textContent='ذخیره در دستگاه';download.href=img.src;
+   download.download='tolica-'+record.id+'.jpg';
+   const del=document.createElement('button');del.textContent='حذف';del.onclick=async()=>{
+    if(!confirm('این عکس از گالری تولیکا حذف شود؟'))return;
+    await removePhoto(record.id);await updateCameraLast();await openCameraGallery();
+   };
+   actions.append(download,del);card.append(img,actions);host.append(card);
+  }
+ }catch{host.textContent='گالری تولیکا در این مرورگر در دسترس نیست.';}
+}
+$('#cameraShutter').onclick=async()=>{
+ if(!studio?.session||!cameraActive||cameraBusy)return;
+ cameraBusy=true;$('#cameraShutter').disabled=true;$('#cameraNotice').hidden=true;
+ try{
+  const blob=await captureARScreen({
+   ratio:$('#cameraRatio').value,
+   beforeFrame:async()=>{
+    $('#cameraMode').classList.add('capturing');
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+   },
+   afterFrame:()=>$('#cameraMode').classList.remove('capturing')
+  });
+  if(!cameraActive)return;
+  await savePhoto(blob,CAMERA_PHOTO_KIND);
+  await updateCameraLast();
+  $('#cameraShutter').classList.add('flash');
+  setTimeout(()=>$('#cameraShutter').classList.remove('flash'),240);
+  cameraNotice('عکس در گالری اختصاصی تولیکا ذخیره شد.');
+ }catch(error){
+  cameraNotice(error instanceof ScreenshotUnavailable?error.message:'ثبت عکس ممکن نشد. دسترسی به ضبط صفحه و فضای ذخیره‌سازی را بررسی کن.');
+ }finally{
+  $('#cameraMode').classList.remove('capturing');
+  cameraBusy=false;$('#cameraShutter').disabled=false;
+ }
+};
 $('#closeARError').onclick=()=>$('#arError').close();$('#basicAR').onclick=()=>startAR(true);$('#copyARError').onclick=async()=>{try{await navigator.clipboard.writeText(lastXRErrorReport);toast('گزارش کپی شد.');}catch{toast('از جزئیات خطا عکس بگیر.');}};
 $('#overlay').addEventListener('beforexrselect',event=>event.preventDefault());$('#homeAR').onclick=async()=>{try{if(studio?.session)await studio.session.end();}catch{}sceneMemory=null;location.hash='welcome';};$('#resetAR').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;$('#confirmFloor').hidden=false;$('#confirmFloor').disabled=true;$('#arEditControls').hidden=true;$('#arSettings').hidden=true;}catch(error){toast('اسکن دوباره اجرا نشد.');}};$('#leaveAR').onclick=async()=>{try{await studio?.session?.end();}catch{toast('دکمهٔ بازگشت گوشی را بزن.');}};$('#confirmFloor').onclick=()=>studio?.confirmFloor();$('#rescanFloor').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;}catch(error){toast('اسکن دوباره راه‌اندازی نشد؛ از AR خارج شو و دوباره وارد شو.');}};
 $('#rotateAR').onclick=()=>{if(studio?.selected)studio.rotate(studio.selected.rotation.y*180/Math.PI+15);};$('#deleteAR').onclick=()=>studio?.remove();$('#colorAR').onclick=()=>{if(studio?.selected){const current='#'+studio.selected.material.color.getHexString();studio.color(palette[(palette.indexOf(current)+1)%palette.length]);}};$('#addAR').onclick=()=>{if(studio.items.length>=16){toast('حد آزمون این نسخه ۱۶ قطعه است.');return;}studio.add(Number($('#arProduct').value));};$('#closePhoto').onclick=()=>$('#photoHelp').close();
