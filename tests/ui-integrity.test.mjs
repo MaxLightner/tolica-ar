@@ -72,3 +72,17 @@ test('collision controls and table/chair rigid-group motion are connected',()=>{
  const pkg=JSON.parse(read('package.json'));
  assert.ok(pkg.scripts.check.includes('node --check collision.js'));
 });
+
+test('photo action uses WebXR camera frames without device screen sharing',()=>{
+ const app=read('app.js'),xr=read('xr.js'),studio=read('studio.js');
+ const capture=read('internal-camera-capture.js'),legacy=read('camera-capture.js');
+ assert.ok(xr.includes("'camera-access'"));
+ assert.ok(app.includes('studio.capturePhoto('));
+ assert.ok(studio.includes('captureInternalAR('));
+ assert.ok(capture.includes('getCameraImage('));
+ assert.ok(capture.includes('renderObjectPixels('));
+ assert.ok(!app.includes('captureARScreen('));
+ assert.ok(!legacy.includes('getDisplayMedia'));
+ const html=read('index.html');
+ assert.ok(html.includes('WebXR Raw Camera Access'));
+});
