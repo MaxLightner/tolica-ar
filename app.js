@@ -1,6 +1,6 @@
 import {explainXR} from './xr.js?v=0.3.1';
 import {photos,savePhoto,removePhoto} from './storage.js';
-import {captureARScreen,CAMERA_RATIOS,ScreenshotUnavailable} from './camera-capture.js?v=0.3.1';
+import {captureARScreen,CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto,ScreenshotUnavailable} from './camera-capture.js?v=0.3.1';
 import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.3.1';
 const $=s=>document.querySelector(s),app=$('#app'),fa=n=>n.toLocaleString('fa-IR');
 let studio,Scene,palette,space='پذیرایی',layout='calm',supported=false,routeVersion=0,photoURLs=[],savedItems=[],arReport=null,sceneMemory=null,arStarting=false,lastXRErrorReport='';
@@ -294,7 +294,6 @@ $('#debugToggle').onclick=()=>setDebug(!debugEnabled);
 $('#debugHide').onclick=()=>setDebug(false);
 $('#debugSave').onclick=saveDebugJSON;
 $('#debugGithub').onclick=openGitHubDebugIssue;
-const CAMERA_KIND='tolica-camera';
 let cameraObjectURLs=[],cameraBusy=false,cameraActive=false;
 function cameraPhotoURL(blob){
  const url=URL.createObjectURL(blob);cameraObjectURLs.push(url);return url;
@@ -302,7 +301,7 @@ function cameraPhotoURL(blob){
 function clearCameraURLs(){cameraObjectURLs.forEach(URL.revokeObjectURL);cameraObjectURLs=[];}
 async function cameraShots(){
  // Imported images, device gallery photos and earlier uploads are not shown here.
- return (await photos()).filter(photo=>photo.kind===CAMERA_KIND).sort((a,b)=>b.date-a.date);
+ return (await photos()).filter(photo=>isCameraPhoto(photo)).sort((a,b)=>b.date-a.date);
 }
 async function updateCameraLast(){
  if(!cameraActive)return;
@@ -386,7 +385,7 @@ $('#cameraShutter').onclick=async()=>{
    afterFrame:()=>$('#cameraMode').classList.remove('capturing')
   });
   if(!cameraActive)return;
-  await savePhoto(blob,CAMERA_KIND);
+  await savePhoto(blob,CAMERA_PHOTO_KIND);
   await updateCameraLast();
   $('#cameraShutter').classList.add('flash');
   setTimeout(()=>$('#cameraShutter').classList.remove('flash'),240);
