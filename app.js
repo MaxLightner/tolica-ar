@@ -1,6 +1,6 @@
 import {explainXR} from './xr.js?v=0.3.2';
 import {photos,savePhoto,removePhoto} from './storage.js';
-import {captureARScreen,CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto,ScreenshotUnavailable} from './camera-capture.js?v=0.3.2';
+import {CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto} from './camera-capture.js?v=0.3.2';
 import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.3.2';
 import {allowedCapacities,layoutOptions,buildLayout,layoutSummary,layoutPreviewSvg} from './layout-templates.js?v=0.3.2';
 import {readDraft,saveDraft,clearDraft,listCustomLayouts,saveCustomLayout,removeCustomLayout} from './layout-storage.js?v=0.3.2';
@@ -487,30 +487,25 @@ async function openCameraGallery(){
 $('#cameraImport').onchange=async e=>{
  const file=e.target.files?.[0];if(!file)return;
  if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>15*1024*1024){cameraNotice('فرمت یا حجم عکس مناسب نیست.');return;}
- try{await savePhoto(file,CAMERA_PHOTO_KIND);await updateCameraLast();$('#cameraFallback').hidden=true;cameraNotice('اسکرین‌شات در گالری خصوصی تولیکا ذخیره شد.');}
- catch{cameraNotice('ذخیره اسکرین‌شات ممکن نشد.');}
+ try{await savePhoto(file,CAMERA_PHOTO_KIND);await updateCameraLast();$('#cameraFallback').hidden=true;cameraNotice('عکس در گالری خصوصی تولیکا ذخیره شد.');}
+ catch{cameraNotice('ذخیره عکس ممکن نشد.');}
  finally{e.target.value='';}
 };
 $('#cameraShutter').onclick=async()=>{
  if(!studio?.session||!cameraActive||cameraBusy)return;
  cameraBusy=true;$('#cameraShutter').disabled=true;$('#cameraNotice').hidden=true;
  try{
-  const blob=await captureARScreen({
-   ratio:$('#cameraRatio').value,
-   beforeFrame:async()=>{
-    $('#cameraMode').classList.add('capturing');
-    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-   },
-   afterFrame:()=>$('#cameraMode').classList.remove('capturing')
-  });
+  // WebXR Raw Camera Access: compose the camera frame with actual rendered furniture.
+  // No display capture, screen-share prompt or OS screenshot is used.
+  const blob=await studio.capturePhoto($('#cameraRatio').value);
   if(!cameraActive)return;
   await savePhoto(blob,CAMERA_PHOTO_KIND);
   await updateCameraLast();
   $('#cameraShutter').classList.add('flash');
   setTimeout(()=>$('#cameraShutter').classList.remove('flash'),240);
-  cameraNotice('عکس در گالری اختصاصی تولیکا ذخیره شد.');
+  cameraNotice('کپچر داخلی با مبلمان در گالری تولیکا ذخیره شد.');
  }catch(error){
-  cameraNotice(error instanceof ScreenshotUnavailable?error.message:'ثبت مستقیم عکس ممکن نشد.');
+  cameraNotice(error?.message||'کپچر داخلی عکس انجام نشد.');
   $('#cameraFallback').hidden=false;
  }finally{
   $('#cameraMode').classList.remove('capturing');
