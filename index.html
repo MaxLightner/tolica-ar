@@ -40,6 +40,11 @@
     <div class="camera-bottom-spacer" aria-hidden="true"></div>
   </div>
   <div id="cameraNotice" class="camera-notice" hidden role="status"></div>
+  <div id="cameraFallback" class="camera-fallback" hidden>
+   <p>مرورگر امکان عکس‌گرفتن مستقیم از AR را نداده است. با کلیدهای اسکرین‌شات دستگاه عکس بگیر و فقط همان عکس را به گالری تولیکا اضافه کن.</p>
+   <label for="cameraImport">افزودن اسکرین‌شات تولیکا</label>
+   <input id="cameraImport" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+  </div>
   <section id="cameraGallery" class="camera-gallery" hidden aria-label="عکس‌های ثبت‌شده در تولیکا">
     <div class="camera-gallery-header">
       <button id="cameraGalleryBack" type="button" aria-label="بازگشت به دوربین">←</button>
@@ -55,6 +60,7 @@
   <button id="arListTool" aria-label="فهرست اشیا">▤ <span>اشیا</span></button>
   <button id="arSaveTool" aria-label="ذخیره چیدمان">▣ <span>ذخیره</span></button>
   <button id="arRulerTool" aria-pressed="false" aria-label="نمایش خط‌کش مستقل">⌗ <span>خط‌کش</span></button>
+  <button id="arMoveLayoutTool" aria-pressed="false" aria-label="جابجایی کل چیدمان">↔ <span>جابه‌جایی</span></button>
   <button id="arSettingsTool" aria-label="تنظیمات و خط جهت">⚙ <span>تنظیمات</span></button>
   <button id="arPhotoTool" aria-label="عکس">◎ <span>عکس</span></button>
  </nav>
