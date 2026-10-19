@@ -1,0 +1,120 @@
+// Lightweight, deterministic 2D furniture collision for the AR floor plane.
+// Units: metres. Coordinates follow Three.js rotation around Y (+angle turns +X towards -Z).
+export const FLOOR_SOLIDS = Object.freeze([0, 1, 2, 3, 6, 8, 9, 10, 11, 12, 13, 15]);
+const EPS = 1e-9;
+const CLEARANCE = 0.012; // 1.2 cm of breathing room between solid footprints.
+
+export function isFloorSolid(index) { return FLOOR_SOLIDS.includes(index); }
+export function footprint(size, x, z, angle = 0) {
+  return { x, z, angle, hx: size[0] / 2, hz: size[2] / 2 };
+}
+const axes = b => {
+  const c = Math.cos(b.angle), s = Math.sin(b.angle);
+  return [[c, -s], [s, c]];
+};
+const projectionRadius = (box, ax, az) => {
+  const c = Math.cos(box.angle), s = Math.sin(box.angle);
+  return box.hx * Math.abs(c * ax - s * az) + box.hz * Math.abs(s * ax + c * az);
+};
+
+export function footprintsOverlap(a, b, clearance = CLEARANCE) {
+  for (const [ax, az] of [...axes(a), ...axes(b)]) {
+    const distance = Math.abs((a.x - b.x) * ax + (a.z - b.z) * az);
+    if (distance >= projectionRadius(a, ax, az) + projectionRadius(b, ax, az) + clearance - EPS) return false;
+  }
+  return true;
+}
+
+// Exact swept SAT for a translated, rotated rectangle. Prevents tunnelling on fast pointer moves.
+function firstContact(start, goal, fixed) {
+  const dx = goal.x - start.x, dz = goal.z - start.z;
+  if (dx * dx + dz * dz < EPS) return null;
+  let enter = -Infinity, exit = Infinity, normal = null;
+  for (const [ax, az] of [...axes(start), ...axes(fixed)]) {
+    const p = (start.x - fixed.x) * ax + (start.z - fixed.z) * az;
+    const v = dx * ax + dz * az;
+    const r = projectionRadius(start, ax, az) + projectionRadius(fixed, ax, az) + CLEARANCE;
+    if (Math.abs(v) < EPS) {
+      if (Math.abs(p) > r) return null;
+      continue;
+    }
+    const a = (-r - p) / v, b = (r - p) / v;
+    const near = Math.min(a, b), far = Math.max(a, b);
+    if (near > enter) {
+      enter = near;
+      const side = p + v * near >= 0 ? 1 : -1;
+      normal = { x: ax * side, z: az * side };
+    }
+    exit = Math.min(exit, far);
+    if (enter > exit) return null;
+  }
+  if (exit <= 0 || enter >= 1 || !normal) return null;
+  return { time: Math.max(0, enter), normal };
+}
+
+export function moveWithoutOverlap(moving, goal, obstacles) {
+  if (![moving.x, moving.z, goal.x, goal.z].every(Number.isFinite)) return { x: moving.x, z: moving.z };
+  let current = { ...moving }, remaining = { x: goal.x - moving.x, z: goal.z - moving.z };
+  // Older saved layouts can start overlapped. Allow escape instead of trapping the item.
+  const blockers = obstacles.filter(other => !footprintsOverlap(moving, other));
+  for (let iteration = 0; iteration < 3; iteration++) {
+    const length = Math.hypot(remaining.x, remaining.z);
+    if (length < 0.0001) break;
+    const target = { ...current, x: current.x + remaining.x, z: current.z + remaining.z };
+    let first = null;
+    for (const item of blockers) {
+      const contact = firstContact(current, target, item);
+      if (contact && (!first || contact.time < first.time)) first = contact;
+    }
+    if (!first) { current = target; break; }
+    const fraction = Math.max(0, first.time - 0.002 / length);
+    current.x += remaining.x * fraction;
+    current.z += remaining.z * fraction;
+    // Project remaining motion on the collision tangent. This allows sliding, not snapping.
+    const rest = 1 - fraction;
+    const vx = remaining.x * rest, vz = remaining.z * rest;
+    const intoWall = Math.min(0, vx * first.normal.x + vz * first.normal.z);
+    remaining = { x: vx - intoWall * first.normal.x, z: vz - intoWall * first.normal.z };
+    if (Math.abs(intoWall) < EPS) break;
+  }
+  return { x: current.x, z: current.z };
+}
+
+export function rotateWithoutOverlap(moving, desiredAngle, obstacles) {
+  if (!Number.isFinite(desiredAngle)) return moving.angle;
+  const delta = desiredAngle - moving.angle;
+  if (Math.abs(delta) < EPS) return moving.angle;
+  const blockers = obstacles.filter(other => !footprintsOverlap(moving, other));
+  if (!blockers.length) return desiredAngle;
+  // Sample short angular arcs so a thin object cannot be jumped over during a 45-degree turn.
+  const steps = Math.min(72, Math.max(1, Math.ceil(Math.abs(delta) / (Math.PI / 36))));
+  let safe = moving.angle;
+  for (let i = 1; i <= steps; i++) {
+    const angle = moving.angle + delta * i / steps;
+    if (blockers.some(b => footprintsOverlap({ ...moving, angle }, b))) {
+      let low = safe, high = angle;
+      for (let j = 0; j < 9; j++) {
+        const mid = (low + high) / 2;
+        if (blockers.some(b => footprintsOverlap({ ...moving, angle: mid }, b))) high = mid;
+        else low = mid;
+      }
+      return low;
+    }
+    safe = angle;
+  }
+  return desiredAngle;
+}
+
+// For additions only: choose a nearby free spot; never teleport an already-grabbed object.
+export function nearestFreeFootprint(candidate, obstacles, maxRadius = 1.8) {
+  if (!obstacles.some(b => footprintsOverlap(candidate, b))) return { x: candidate.x, z: candidate.z };
+  for (let radius = .15; radius <= maxRadius + EPS; radius += .15) {
+    const directions = Math.max(16, Math.ceil(2 * Math.PI * radius / .24));
+    for (let i = 0; i < directions; i++) {
+      const theta = 2 * Math.PI * i / directions;
+      const test = { ...candidate, x: candidate.x + radius * Math.cos(theta), z: candidate.z + radius * Math.sin(theta) };
+      if (!obstacles.some(b => footprintsOverlap(test, b))) return { x: test.x, z: test.z };
+    }
+  }
+  return null;
+}
