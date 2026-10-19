@@ -10,6 +10,8 @@ import {EnvironmentEffects} from './effects.js?v=0.2.4';
 import {AnchorStabilizer,transformPoint} from './anchor-rig.js?v=0.2.4';
 import {ARDebugView} from './ar-debug.js?v=0.2.6';
 import {buildLayout} from './layout-templates.js?v=0.3.1';
+import {assetMetadata,isLamp,isSofa,isTable,isWallArt} from './asset-metadata.js?v=0.3.2';
+import {installSofaCushions} from './sofa-cushions.js?v=0.3.2';
 export const palette=['#b6bca2','#d5c4ad','#b9c4c6','#ba9380'];
 const fa=n=>n.toLocaleString('fa-IR',{maximumFractionDigits:1});
 export class Studio{
@@ -20,7 +22,7 @@ export class Studio{
   this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));this.renderer.xr.enabled=true;this.renderer.xr.setReferenceSpaceType('local');host.prepend(this.renderer.domElement);
   this.effects=new EnvironmentEffects(this.scene,this.renderer);
   this.floorFrame=new THREE.Group();this.scene.add(this.floorFrame);this.root=new THREE.Group();this.floorFrame.add(this.root);
-  this.placementEnabled=false;this.placementPoint=null;this.lastSelectionUI=0;
+  this.placementEnabled=false;this.placementPoint=null;this.lastSelectionUI=0;this.moveLayoutMode=false;
   this.measureTool=new MeasureTool(this.floorFrame,text=>this.makeLabel(text));this.measureTool.label.userData.updateText=text=>this.setLabel(this.measureTool.label,text);
   // The landing pin is on the already-locked virtual floor; it never changes ARCore tracking.
   this.placementMarker=new THREE.Mesh(new THREE.PlaneGeometry(.66,.66).rotateX(-Math.PI/2),
@@ -78,6 +80,10 @@ void main(){
   this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(host);this.syncSpatial();this.resize();this.renderer.setAnimationLoop((time,frame)=>this.frame(time,frame));
  }
  get placed(){return this.model.locked;}
+
+ setMoveLayoutMode(value){this.moveLayoutMode=!!value;this.cancelGesture();this.onHint?.(this.moveLayoutMode?'برای حرکت کل چیدمان، نقطه‌ای از زمین را لمس کن و بکش.':'حالت جابه‌جایی چیدمان بسته شد.');return this.moveLayoutMode;}
+ rotateLayout(degrees=15){this.model.layoutYaw+=degrees*Math.PI/180;this.syncSpatial();this.changed();}
+
  setPlacementEnabled(value){this.placementEnabled=!!value;this.placementMarker&&(this.placementMarker.visible=this.placementEnabled&&this.model.locked&&!this.photoMode);return this.placementEnabled;}
 
  setMeasureActive(value){this.measureTool.setActive(value);this.measureTool.group.visible=this.measureTool.active&&!this.photoMode&&this.model.locked;return this.measureTool.active;}
@@ -96,20 +102,25 @@ void main(){
  add(index=this.serial%4,position,options={}){index=((index%CATALOG.length)+CATALOG.length)%CATALOG.length;const baseProduct=CATALOG[index],product=options.size?{...baseProduct,size:options.size}:baseProduct,id=++this.serial,[w,h,d]=product.size;const color=palette[index]||'#c6b7a3';const mesh=index<4?createFurniture(index,product.size,color,options.seats):createDecor(index,product.size,color);
   const edges=new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry),new THREE.LineBasicMaterial({color:0x9f927f,transparent:true,opacity:.15,depthWrite:false}));mesh.add(edges);
   const dimensions=`${product.name} · ${product.size.map(v=>fa(v*100)).join(' × ')} cm`;const label=this.makeLabel(dimensions);label.position.y=h/2+.18;label.scale.set(1.5,.22,1);mesh.add(label);
-  mesh.userData={...mesh.userData,id,index,height:h,price:product.price,product,edges,label,seats:options.seats||(index===0?3:1)};const defaults=[[0,h/2,-2.1],[2,h/2,-2.1],[.6,h/2,-.9],[2,h/2,-.6],[.3,h/2,-.75],[.3,h/2,-2.1],[2,h/2,-.65],[.9,h/2,-1.5],[.5,h/2,-1.8],[.5,h/2,-1.8],[.5,h/2,-1.7],[.5,h/2,-1.2]];
-  mesh.position.fromArray(defaults[index]||[0,h/2,-1.65]);if(position)mesh.position.copy(position);mesh.position.y=h/2;
+  mesh.userData={...mesh.userData,id,index,height:h,price:product.price,product,edges,label,
+  asset:assetMetadata(index,product.size),seats:options.seats||(index===0?3:1),cushionPreset:'none',
+  collisionBox:new THREE.Box3(new THREE.Vector3(-w/2,-h/2,-d/2),new THREE.Vector3(w/2,h/2,d/2))};const defaults=[[0,h/2,-2.1],[2,h/2,-2.1],[.6,h/2,-.9],[2,h/2,-.6],[.3,h/2,-.75],[.3,h/2,-2.1],[2,h/2,-.65],[.9,h/2,-1.5],[.5,h/2,-1.8],[.5,h/2,-1.8],[.5,h/2,-1.7],[.5,h/2,-1.2]];
+  mesh.position.fromArray(defaults[index]||[0,h/2,-1.65]);if(position)mesh.position.copy(position);
+  mesh.position.y=isWallArt(index)?(position?.y>1?position.y:1.55):h/2;
+  if(isSofa(index))installSofaCushions(mesh,options.cushionPreset||'none');
   // Transparent radial contact shadow: darkens the camera floor, not a black disc.
-  if(index!==7&&index!==5)this.addContactShadow(mesh,w,d,h,index===4?.31:index===6?.48:.68);
+  if(index!==7&&index!==5&&!isWallArt(index))this.addContactShadow(mesh,w,d,h,index===4?.31:isLamp(index)?.45:.68);
   this.root.add(mesh);this.items.push(mesh);
   if(!position&&index===4){
-   const table=this.items.find(m=>m!==mesh&&[2,9,10].includes(m.userData.index));
+   const table=this.items.find(m=>m!==mesh&&isTable(m.userData.index));
    if(table)mesh.userData.attachment={id:table.userData.id,offset:[0,table.userData.height/2+h/2,0]};
   }
   if(!position&&index===5){
    const sofa=this.items.find(m=>m!==mesh&&(m.userData.index===0||m.userData.index===1));
    if(sofa)mesh.userData.attachment={id:sofa.userData.id,offset:[0,.56+h/2-sofa.userData.height/2,.20]};
   }
-  this.refreshAttachments();if(!options.silentSelect)this.select(mesh);this.setGuides();return mesh;
+  this.refreshAttachments();if(isLamp(index)){this.initializeLamp(mesh,options.lampOn===true);if(index===14&&position)this.snapToSupport(mesh);}
+  if(!options.silentSelect)this.select(mesh);this.setGuides();return mesh;
  }
  addContactShadow(mesh,w,d,h,opacity){
   // Radial darkening decal, alpha blended against the real-world passthrough
@@ -146,7 +157,7 @@ void main(){
   for(const m of this.items){
    m.userData.edges.material.color.set(m===mesh?'#d3a66e':'#8d7e6d');
    m.userData.edges.material.opacity=m===mesh?.48:.13;
-   if(m.material?.emissive){m.material.emissive.set(m===mesh?'#b79363':'#000000');m.material.emissiveIntensity=m===mesh?.17:0;}
+   if(m.material?.emissive&&!isLamp(m.userData.index)){m.material.emissive.set(m===mesh?'#b79363':'#000000');m.material.emissiveIntensity=m===mesh?.17:0;}
    if(m.userData.selectionHalo)m.userData.selectionHalo.visible=m===mesh;
   }
   if(mesh&&!mesh.userData.selectionHalo){
@@ -172,6 +183,8 @@ void main(){
   copy.rotation.y=source.rotation.y;copy.material.color.copy(source.material.color);
   if(source.userData.rugStyle)applyRugStyle(copy,source.userData.rugStyle);
   copy.userData.capacity=source.userData.capacity;copy.userData.tableId=source.userData.tableId;
+  if(isSofa(source.userData.index))installSofaCushions(copy,source.userData.cushionPreset);
+  if(isLamp(source.userData.index))this.initializeLamp(copy,source.userData.lampOn);
   this.select(copy);return copy;
  }
 
@@ -181,6 +194,8 @@ void main(){
   const linked=this.items.filter(x=>x.userData.attachment?.id===id).map(x=>({mesh:x,attachment:{...x.userData.attachment}}));
   this.remove();
   const next=this.add(index,p,options);next.userData.id=id;next.rotation.y=angle;next.material.color.copy(color);
+  if(isSofa(index)&&isSofa(old.userData.index))installSofaCushions(next,old.userData.cushionPreset);
+  if(isLamp(index)&&isLamp(old.userData.index))this.initializeLamp(next,old.userData.lampOn);
   next.userData.seats=options.seats||next.userData.seats;
   this.keepOnFloor(next);
   for(const x of linked)x.mesh.userData.attachment=x.attachment;
@@ -206,32 +221,48 @@ void main(){
   const index=count===1?1:0,w={1:.9,2:1.62,3:2.1}[count];
   this.replaceSelected(index,{size:[w,.85,.9],seats:count});return true;
  }
- snapVase(mesh){
-  if(!mesh||mesh.userData.index!==4)return;
-  const table=this.items.find(other=>{
-   if(other===mesh||!other.visible||![2,9,10].includes(other.userData.index))return false;
-   const offset=mesh.position.clone().sub(other.position).applyAxisAngle(new THREE.Vector3(0,1,0),-other.rotation.y);
-   const [w,,d]=other.userData.product.size;
-   return Math.abs(offset.x)<w*.5-.04&&Math.abs(offset.z)<d*.5-.04;
+ snapToSupport(mesh,allowed=[2,9,10,12,13]){
+  if(!mesh)return null;
+  const base=this.items.find(other=>{
+   if(other===mesh||!other.visible||!allowed.includes(other.userData.index))return false;
+   const point=mesh.position.clone().sub(other.position).applyAxisAngle(new THREE.Vector3(0,1,0),-other.rotation.y);
+   const surface=other.userData.asset?.supportSurfaces?.find(x=>x.kind==='horizontal');
+   return !!surface&&Math.abs(point.x)<surface.width/2&&Math.abs(point.z)<surface.depth/2;
   });
-  if(!table){mesh.userData.attachment=null;mesh.position.y=mesh.userData.height/2;return;}
-  const offset=mesh.position.clone().sub(table.position).applyAxisAngle(new THREE.Vector3(0,1,0),-table.rotation.y);
-  offset.y=table.userData.height/2+mesh.userData.height/2;
-  mesh.userData.attachment={id:table.userData.id,offset:offset.toArray()};
-  this.refreshAttachments();
+  if(!base){mesh.userData.attachment=null;mesh.position.y=mesh.userData.height/2;return null;}
+  const offset=mesh.position.clone().sub(base.position).applyAxisAngle(new THREE.Vector3(0,1,0),-base.rotation.y);
+  offset.y=base.userData.height/2+mesh.userData.height/2;
+  mesh.userData.attachment={id:base.userData.id,offset:offset.toArray()};
+  this.refreshAttachments();return base;
+ }
+ snapVase(mesh){if(mesh?.userData.index!==4)return;this.snapToSupport(mesh);}
+ initializeLamp(mesh,on){
+  mesh.userData.lampOn=!!on;
+  mesh.traverse(o=>{
+   if(o.isPointLight){o.visible=!!on;o.intensity=on?2.2:0;o.distance=3.8;}
+   if(o.name==='lamp-visible-glow'&&o.material)o.material.opacity=on?.46:0;
+  });
+  if(mesh.material?.emissive)mesh.material.emissiveIntensity=on?2.3:.04;
+ }
+ setSofaCushions(preset){
+  const mesh=this.selected;
+  if(!mesh||!isSofa(mesh.userData.index))return false;
+  const ok=installSofaCushions(mesh,preset);
+  if(ok)this.changed();return ok;
  }
  setRugStyle(id){if(!this.selected||this.selected.userData.index!==7)return false;applyRugStyle(this.selected,id);this.changed();return true;}
- setLampOn(value){if(!this.selected||this.selected.userData.index!==6)return false;
-  this.selected.traverse(o=>{if(o.isPointLight)o.visible=!!value;});
-  this.selected.material.emissiveIntensity=value?.9:.03;
-  this.selected.userData.lampOn=!!value;this.changed();return true;
+ setLampOn(value){
+  if(!this.selected||!isLamp(this.selected.userData.index))return false;
+  this.initializeLamp(this.selected,value);this.changed();return true;
  }
  addAtMarker(index){
-  if(!this.placementPoint)return this.add(index);
-  const [w,h,d]=CATALOG[index].size;
-  const item=this.add(index,new THREE.Vector3(this.placementPoint.x,h/2,this.placementPoint.z));
+  const h=CATALOG[index].size[1];
+  const p=this.placementPoint?new THREE.Vector3(this.placementPoint.x,h/2,this.placementPoint.z):undefined;
+  const item=this.add(index,p);
+  if(index===10){item.userData.capacity=4;this.setDiningCapacity(4);}
   if(index===4)this.snapVase(item);
-  return item;
+  if(index===14)this.snapToSupport(item);
+  return this.selected||item;
  }
  updatePlacementMarker(time){
   if(!this.placementMarker)return;
@@ -261,21 +292,26 @@ void main(){
  remove(){const m=this.selected;if(!m)return;this.items=this.items.filter(x=>x!==m);for(const child of this.items)if(child.userData.attachment?.id===m.userData.id){child.userData.attachment=null;this.keepOnFloor(child);}this.root.remove(m);this.disposeObject(m);this.select(this.items[0]||null);}
  clear(){for(const m of this.items){this.root.remove(m);this.disposeObject(m);}this.items=[];this.selected=null;this.serial=0;this.changed();}
  disposeObject(object){object.traverse(o=>{o.geometry?.dispose();if(o.material){o.material.map?.dispose();o.material.dispose();}});}
- rotate(degrees){if(!this.selected)return;this.selected.rotation.y=degrees===undefined?this.selected.rotation.y+Math.PI/12:degrees*Math.PI/180;this.keepOnFloor(this.selected);this.refreshAttachments();this.changed();}
+ rotate(degrees){if(!this.selected)return;this.selected.rotation.y=degrees===undefined?this.selected.rotation.y+Math.PI/4:degrees*Math.PI/180;this.keepOnFloor(this.selected);this.refreshAttachments();this.changed();}
  color(color){if(this.selected){this.selected.material.color.set(color);this.changed();}}
  calibrate(cm){this.model.calibrate(Number(cm)/100);this.measureTool.setCorrection(this.model.correction);this.syncSpatial();this.changed();return this.measurement();}
  resetCalibration(){this.model.resetCalibration();this.measureTool.setCorrection(this.model.correction);this.syncSpatial();this.changed();}
  setHeight(){throw Error('ارتفاع کف فقط از شناسایی واقعی تعیین می‌شود.');}
  measurement(){return {measuredCm:this.model.length*100,correctedCm:this.model.length/this.model.correction*100,scale:this.model.correction,actualCm:this.model.actualLength===null?null:this.model.actualLength*100,heightCm:this.model.heightOffset*100};}
- exportState(){return {spatial:this.model.snapshot(),items:this.items.map(m=>({index:m.userData.index,id:m.userData.id,position:m.position.toArray(),rotation:m.rotation.y,color:'#'+m.material.color.getHexString(),attachment:m.userData.attachment||null,size:[...m.userData.product.size],capacity:m.userData.capacity||null,seats:m.userData.seats||null,tableId:m.userData.tableId||null,hidden:!!m.userData.hidden,rugStyle:m.userData.rugStyle||null,lampOn:m.userData.lampOn!==false}))};}
- restoreState(state){this.model.restore(state.spatial);for(const x of state.items){const mesh=this.add(x.index,x.position?new THREE.Vector3(...x.position):undefined,{size:x.size,seats:x.seats});mesh.userData.id=x.id;mesh.position.fromArray(x.position);mesh.rotation.y=x.rotation;mesh.material.color.set(x.color);mesh.userData.attachment=x.attachment||null;mesh.userData.capacity=x.capacity||null;mesh.userData.seats=x.seats||mesh.userData.seats;mesh.userData.tableId=x.tableId||null;mesh.userData.hidden=!!x.hidden;mesh.visible=!x.hidden;if(x.rugStyle)applyRugStyle(mesh,x.rugStyle);if(x.lampOn===false&&mesh.userData.index===6){mesh.traverse(o=>{if(o.isPointLight)o.visible=false;});mesh.userData.lampOn=false;}}this.serial=Math.max(0,...state.items.map(x=>x.id));this.measureTool.setCorrection(this.model.correction);this.refreshAttachments();this.syncSpatial();this.select(this.items[0]||null);}
+ exportState(){return {spatial:this.model.snapshot(),items:this.items.map(m=>({index:m.userData.index,id:m.userData.id,
+ position:m.position.toArray(),rotation:m.rotation.y,color:'#'+m.material.color.getHexString(),
+ attachment:m.userData.attachment||null,size:[...m.userData.product.size],capacity:m.userData.capacity||null,
+ seats:m.userData.seats||null,tableId:m.userData.tableId||null,hidden:!!m.userData.hidden,
+ rugStyle:m.userData.rugStyle||null,lampOn:!!m.userData.lampOn,
+ cushionPreset:m.userData.cushionPreset||'none'}))};}
+ restoreState(state){this.model.restore(state.spatial);for(const x of state.items){const mesh=this.add(x.index,x.position?new THREE.Vector3(...x.position):undefined,{size:x.size,seats:x.seats,silentSelect:true,cushionPreset:x.cushionPreset,lampOn:x.lampOn});mesh.userData.id=x.id;mesh.position.fromArray(x.position);mesh.rotation.y=x.rotation;mesh.material.color.set(x.color);mesh.userData.attachment=x.attachment||null;mesh.userData.capacity=x.capacity||null;mesh.userData.seats=x.seats||mesh.userData.seats;mesh.userData.tableId=x.tableId||null;mesh.userData.hidden=!!x.hidden;mesh.visible=!x.hidden;if(x.rugStyle)applyRugStyle(mesh,x.rugStyle);if(isLamp(mesh.userData.index))this.initializeLamp(mesh,x.lampOn===true);}this.serial=Math.max(0,...state.items.map(x=>x.id));this.measureTool.setCorrection(this.model.correction);this.refreshAttachments();this.syncSpatial();this.select(this.items[0]||null);}
  attachInput(target,opts){target.addEventListener('pointerdown',e=>this.down(e,target),opts);target.addEventListener('pointermove',e=>this.drag(e,target),opts);target.addEventListener('pointerup',e=>this.up(e,target),opts);target.addEventListener('pointercancel',()=>this.cancelGesture(),opts);target.addEventListener('lostpointercapture',e=>{if(this.points.has(e.pointerId))this.up(e,target);},opts);}
  activeCamera(){if(this.session)return this.renderer.xr.getCamera().cameras[0]||this.renderer.xr.getCamera();return this.camera;}
  setRay(e,target){const r=target.getBoundingClientRect();this.pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);this.floorFrame.updateMatrixWorld(true);this.ray.setFromCamera(this.pointer,this.activeCamera());}
  pointOnFloor(e,target){this.setRay(e,target);return this.ray.ray.intersectPlane(this.model.plane,new THREE.Vector3());}
  floorLocal(point){return this.floorFrame.worldToLocal(point.clone());}
  rootLocal(point){return this.root.worldToLocal(point.clone());}
- keepOnFloor(mesh){if(mesh&&!mesh.userData.attachment)mesh.position.y=mesh.userData.height/2;}
+ keepOnFloor(mesh){if(mesh&&!mesh.userData.attachment&&!isWallArt(mesh.userData.index))mesh.position.y=mesh.userData.height/2;}
  hitHandle(e,target){const bounds=target.getBoundingClientRect();let best=null,distance=36;for(const h of [this.handleA,this.handleB]){const p=h.getWorldPosition(new THREE.Vector3()).project(this.activeCamera());if(p.z>1||p.z< -1)continue;const d=Math.hypot((p.x+1)*bounds.width/2+bounds.left-e.clientX,(1-p.y)*bounds.height/2+bounds.top-e.clientY);if(d<distance){distance=d;best=h.userData.handle;}}return best;}
  down(e,target){if(this.photoMode){this.onPhotoTap?.();return;}
   if(this.measureTool.active&&this.model.locked&&(!this.session||this.tracking)){
@@ -284,10 +320,12 @@ void main(){
    return;
   }
   if(!this.model.locked||(this.session&&!this.tracking)||this.points.size>=2||(this.points.size===1&&['A','B'].includes(this.gesture?.kind)))return;e.preventDefault();target.setPointerCapture(e.pointerId);this.points.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});
-  if(this.points.size===1){const p=this.pointOnFloor(e,target);if(!p){this.cancelGesture();return;}const handle=this.hitHandle(e,target);if(handle){this.gesture={kind:handle,offset:this.model[handle.toLowerCase()].clone().sub(this.floorLocal(p))};return;}
+  if(this.points.size===1){const p=this.pointOnFloor(e,target);if(!p){this.cancelGesture();return;}
+   if(this.moveLayoutMode){this.gesture={kind:'layout',offset:this.model.layoutOffset.clone().sub(this.floorLocal(p))};return;}
+   const handle=this.hitHandle(e,target);if(handle){this.gesture={kind:handle,offset:this.model[handle.toLowerCase()].clone().sub(this.floorLocal(p))};return;}
    this.setRay(e,target);const hit=furnitureHit(this.ray,this.items.filter(x=>x.visible));if(!hit){this.select(null);this.gesture=null;return;}
    this.select(hit.object);
-   if(hit.object.userData.index===6){
+   if(isLamp(hit.object.userData.index)){
     const localHit=hit.object.worldToLocal(hit.point.clone());
     if(localHit.y> -hit.object.userData.height/2+.34){this.gesture=null;this.onHint?.('آباژور را از پایه بگیر و جابه‌جا کن.');return;}
    }
@@ -299,11 +337,14 @@ void main(){
  drag(e,target){if(!this.points.has(e.pointerId)||this.photoMode||(this.session&&!this.tracking))return;e.preventDefault();this.points.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});const g=this.gesture;if(!g)return;
   if(this.points.size===2&&this.selected){if(g.kind!=='twist'){this.startTwist(target);return;}const angle=this.twistAngle(target);if(angle!==null)this.selected.rotation.y=g.rotation+wrappedAngle(angle-g.start);this.keepOnFloor(this.selected);this.refreshAttachments();return;}
   if(this.points.size!==1||g.kind==='twist')return;const p=this.pointOnFloor(e,target);if(!p)return;
-  if(g.kind==='object'&&this.selected){const local=this.rootLocal(p).add(g.offset);this.selected.position.x=local.x;this.selected.position.z=local.z;if(this.selected.userData.index===4){this.snapVase(this.selected);}else{this.keepOnFloor(this.selected);if(this.selected.userData.attachment){const link=this.selected.userData.attachment,base=this.items.find(m=>m.userData.id===link.id);if(base){const offset=this.selected.position.clone().sub(base.position).applyAxisAngle(new THREE.Vector3(0,1,0),-base.rotation.y);link.offset[0]=offset.x;link.offset[2]=offset.z;}}this.refreshAttachments();}}
+  if(g.kind==='layout'){
+   this.model.layoutOffset.copy(this.floorLocal(p).add(g.offset));this.syncSpatial();return;
+  }
+  if(g.kind==='object'&&this.selected){const local=this.rootLocal(p).add(g.offset);this.selected.position.x=local.x;this.selected.position.z=local.z;if([4,14].includes(this.selected.userData.index)){this.snapToSupport(this.selected);}else{this.keepOnFloor(this.selected);if(this.selected.userData.attachment){const link=this.selected.userData.attachment,base=this.items.find(m=>m.userData.id===link.id);if(base){const offset=this.selected.position.clone().sub(base.position).applyAxisAngle(new THREE.Vector3(0,1,0),-base.rotation.y);link.offset[0]=offset.x;link.offset[2]=offset.z;}}this.refreshAttachments();}}
   else if(g.kind==='A'){this.model.moveA(this.floorLocal(p).add(g.offset));this.syncSpatial();}
   else if(g.kind==='B'){this.model.moveB(this.floorLocal(p).add(g.offset));this.syncSpatial();}
  }
- up(e,target){this.points.delete(e.pointerId);if(this.points.size===1&&this.selected){const remaining=[...this.points.values()][0],p=this.pointOnFloor(remaining,target);this.gesture=p?{kind:'object',offset:this.selected.position.clone().sub(this.rootLocal(p))}:null;}else if(!this.points.size){this.gesture=null;this.changed();}}
+ up(e,target){this.points.delete(e.pointerId);if(this.points.size===1&&this.selected&&!this.moveLayoutMode){const remaining=[...this.points.values()][0],p=this.pointOnFloor(remaining,target);this.gesture=p?{kind:'object',offset:this.selected.position.clone().sub(this.rootLocal(p))}:null;}else if(!this.points.size){this.gesture=null;this.changed();}}
  cancelGesture(){this.points.clear();this.gesture=null;}
  setGuides(){const show=!this.photoMode;if(this.placementMarker)this.placementMarker.visible=show&&this.model.locked&&this.placementEnabled;if(this.measureTool)this.measureTool.group.visible=show&&this.model.locked&&this.measureTool.active;this.floorNet.visible=show&&(this.model.locked||this.scanner.ready);this.ruler.visible=show&&this.model.locked;for(const m of this.items){m.userData.edges.visible=show&&m===this.selected;m.userData.label.visible=show;if(m.userData.selectionHalo)m.userData.selectionHalo.visible=show&&m===this.selected;}}
  setPhotoMode(enabled){this.cancelGesture();this.photoMode=enabled;this.setGuides();this.changed();}
@@ -384,7 +425,7 @@ void main(){
   if(this.anchorNodes.length>=5){this.hitSource?.cancel();this.hitSource=null;}
  }
  selectAR(event){if(!this.model.locked)return;const pose=event.frame.getPose(event.inputSource.targetRaySpace,this.renderer.xr.getReferenceSpace());if(!pose)return;const matrix=new THREE.Matrix4().fromArray(pose.transform.matrix);this.ray.ray.origin.setFromMatrixPosition(matrix);this.ray.ray.direction.set(0,0,-1).transformDirection(matrix);this.floorFrame.updateMatrixWorld(true);const hit=furnitureHit(this.ray,this.items);if(hit)this.select(hit.object);}
- endSession(){try{this.hitSource?.cancel();}catch{}for(const s of this.extraHitSources)try{s.cancel();}catch{}this.extraHitSources=[];this.hitSource=null;this.debugView.note('AR session ended');this.measureTool?.setActive(false);this.setPlacementEnabled(false);this.dropAnchor();this.needsAnchor=false;this.session=null;this.model.origin.set(0,0,0);this.model.anchorYaw=0;this.model.heightOffset=0;this.model.locked=true;this.tracking=true;this.root.visible=true;this.photoMode=false;this.scanMarkers.visible=false;this.syncSpatial();this.setGuides();this.effects.reset();this.scene.background=new THREE.Color('#eeeee3');this.camera.position.set(5.2,4.4,6);this.camera.lookAt(.6,0,-.5);this.cancelGesture();this.resize();document.querySelector('#overlay').hidden=true;this.onEnd?.();this.changed();}
+ endSession(){try{this.hitSource?.cancel();}catch{}for(const s of this.extraHitSources)try{s.cancel();}catch{}this.extraHitSources=[];this.hitSource=null;this.debugView.note('AR session ended');this.measureTool?.setActive(false);this.setPlacementEnabled(false);this.dropAnchor();this.needsAnchor=false;this.moveLayoutMode=false;this.session=null;this.model.origin.set(0,0,0);this.model.anchorYaw=0;this.model.heightOffset=0;this.model.locked=true;this.tracking=true;this.root.visible=true;this.photoMode=false;this.scanMarkers.visible=false;this.syncSpatial();this.setGuides();this.effects.reset();this.scene.background=new THREE.Color('#eeeee3');this.camera.position.set(5.2,4.4,6);this.camera.lookAt(.6,0,-.5);this.cancelGesture();this.resize();document.querySelector('#overlay').hidden=true;this.onEnd?.();this.changed();}
  frame(time,frame){
   if(frame&&this.session){const space=this.renderer.xr.getReferenceSpace(),pose=frame.getViewerPose(space);this.tracking=!!pose;
    if(!pose){this.cancelGesture();this.status('ردیابی قطع شد؛ چیدمان جابجا نمی‌شود. دوربین را آرام به محیط برگردان.');}
@@ -432,7 +473,7 @@ void main(){
    if(this.selected?.userData.edges){
     this.selected.userData.edges.material.opacity=.38+.10*Math.sin(time*.0035);
     if(this.selected.userData.selectionHalo)this.selected.userData.selectionHalo.material.opacity=.36+.14*Math.sin(time*.0028);
-    if(this.selected.material?.emissive)this.selected.material.emissiveIntensity=.13+.07*Math.sin(time*.0026);
+    if(this.selected.material?.emissive&&!isLamp(this.selected.userData.index))this.selected.material.emissiveIntensity=.13+.07*Math.sin(time*.0026);
    }
    if(time-this.lastSelectionUI>32){this.onSelectionScreen?.(this.selectionScreenPosition());this.lastSelectionUI=time;}
   }

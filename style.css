@@ -316,3 +316,76 @@
  .camera-framing{top:50%;max-height:65svh;width:min(65vw,calc(65svh * var(--frame-ratio)))}
  .camera-notice{bottom:85px}
 }
+
+/* Tolica 0.3.2 — compact initial choice, readable category picker and reusable showroom layouts */
+.rooms-page{padding-top:8px!important}
+.rooms-page .page-heading{margin-bottom:10px}
+.room-choice{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.room-choice .card{min-width:0;min-height:96px;padding:9px 5px!important;display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center}
+.room-choice .card svg{height:32px;width:32px;flex:0 0 32px}
+.room-choice .card strong{font-size:clamp(11px,1.8vw,15px);white-space:nowrap}
+.room-choice .card small{font-size:10px;line-height:1.35;text-align:center}
+.rooms-page .room-prefs{margin:8px auto 10px;padding:7px 0 5px}
+.rooms-page .room-prefs .pref-heading{margin:8px 0 5px;font-size:12px}
+.rooms-page .style-pills{gap:6px;padding:2px 0 5px}
+.rooms-page .style-pills button{min-height:38px;font-size:12px;padding:7px 11px}
+.rooms-page .people-picks{gap:6px;padding:2px 0 5px}
+.rooms-page .people-picks button{min-height:39px;min-width:55px;font-size:12px}
+.rooms-page .theme-picks{gap:6px;padding:2px 0 5px}
+.rooms-page .theme-picks button{min-width:84px;padding:5px}
+.rooms-page .theme-picks small{font-size:10px;margin-top:3px}
+.rooms-page .theme-blocks{height:21px}
+.rooms-page .continue-room{min-height:45px}
+.ar-category-tabs{display:flex;align-items:stretch;gap:8px;overflow-x:auto;scrollbar-width:thin;padding:8px 1px 12px}
+.ar-category-tabs button{flex:none;white-space:nowrap;border:1px solid #c4b6a4;border-radius:12px;padding:10px 15px;
+ background:#e9ded0;color:#5e564c;font-size:14px;min-height:44px}
+.ar-category-tabs button.selected{background:#4b6658;color:#fff;border-color:#4b6658}
+.ar-object-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.catalog-tile{min-height:110px;padding:10px 4px}
+.catalog-tile span{font-size:14px!important;line-height:1.45;text-align:center;font-weight:500}
+.saved-section{grid-column:1/-1;margin-top:16px;border-top:1px solid #d5c9ba;padding-top:12px}
+.saved-section h3{font-size:17px;margin:7px 0 11px}
+.saved-layout-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.saved-plan-card{background:#eee5da;border:1px solid #d0bfae;border-radius:13px;padding:6px;position:relative}
+.saved-plan-open{display:grid;width:100%;border:0;background:none;padding:0;text-align:right;gap:5px}
+.saved-plan-image{aspect-ratio:320/234;background:#f4eee6;border-radius:9px;overflow:hidden}
+.saved-plan-image svg{width:100%;height:100%;display:block}
+.saved-plan-open strong{font-size:14px;padding:1px 6px}
+.saved-plan-open small{font-size:11px;color:#857362;padding:0 6px 7px}
+.saved-plan-delete{position:absolute;top:10px;left:10px;border-radius:50%;width:31px;height:31px;background:#f1dacf;border:0;color:#915242;font-size:22px}
+.saved-empty{font-size:13px;color:#837365}
+.custom-save-row{display:flex;gap:8px;margin-top:10px}
+.custom-save-row input{flex:1;min-width:0;font-size:15px;padding:10px;border:1px solid #c9b7a4;border-radius:10px}
+.custom-save-row button{flex:none;min-height:46px;background:#46685b;color:#fff;border:0;border-radius:10px;font-size:14px;padding:9px 13px}
+.ar-dock{grid-template-columns:repeat(8,minmax(0,1fr));max-width:690px}
+.ar-dock button{padding-left:0;padding-right:0}
+.ar-dock button[aria-pressed="true"],.object-quick button[aria-pressed="true"]{background:#acd0ad4d;color:#285a44}
+.camera-fallback{position:absolute;left:15px;right:15px;bottom:calc(125px + env(safe-area-inset-bottom));z-index:48;max-width:450px;
+ margin:auto;background:#1e2724ed;color:#fff;text-align:center;pointer-events:auto;border:1px solid #ffffff54;
+ padding:12px;border-radius:15px;line-height:1.65;font-size:12px}
+.camera-fallback label{display:inline-block;background:#f5e8d4;color:#374e43;padding:10px 14px;border-radius:9px;cursor:pointer;font-size:13px}
+.camera-mode.gallery-open .camera-fallback,.camera-mode.capturing .camera-fallback{visibility:hidden;pointer-events:none}
+@media(max-width:600px){
+ .room-choice{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+ .room-choice .card{min-height:75px;padding:4px!important}
+ .room-choice .card svg{height:23px;width:23px;flex-basis:23px}
+ .room-choice .card strong{font-size:12px}
+ .room-choice .card small{display:none}
+ .rooms-page .page-heading{margin-bottom:7px}
+ .rooms-page .room-prefs .pref-heading{margin:6px 0 3px}
+ .ar-dock{grid-template-columns:repeat(8,minmax(0,1fr));gap:2px;padding:6px 2px}
+ .ar-dock button{min-height:51px;font-size:18px}
+ .ar-dock button span{font-size:8.5px;letter-spacing:-.2px}
+ .ar-object-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .catalog-tile span{font-size:12px!important}
+}
+@media(min-width:601px) and (min-height:550px){
+ .room-choice .card svg{height:42px;width:42px;flex-basis:42px}
+ .room-choice .card{min-height:110px}
+ .rooms-page .style-pills button{font-size:15px;min-height:44px}
+ .rooms-page .people-picks button{font-size:15px;min-height:45px}
+ .rooms-page .theme-picks button{min-width:112px}
+ .rooms-page .theme-picks small{font-size:12px}
+ .rooms-page .theme-blocks{height:29px}
+ .catalog-tile span{font-size:16px!important}
+}

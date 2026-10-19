@@ -13,12 +13,20 @@ export const CATALOG=Object.freeze([
  Object.freeze({name:'میز ناهارخوری',size:Object.freeze([1.7,.75,.86]),price:0}),
  Object.freeze({name:'صندلی ناهارخوری',size:Object.freeze([.48,.90,.47]),price:0}),
  Object.freeze({name:'میز عسلی مربعی',size:Object.freeze([.48,.48,.48]),price:0}),
- Object.freeze({name:'میز جلو مبلی مربعی',size:Object.freeze([1.15,.42,1.15]),price:0})
+ Object.freeze({name:'میز جلو مبلی مربعی',size:Object.freeze([1.15,.42,1.15]),price:0}),
+ Object.freeze({name:'آباژور رومیزی',size:Object.freeze([.35,.55,.35]),price:0}),
+ Object.freeze({name:'آباژور سه‌پایه',size:Object.freeze([.55,1.6,.55]),price:0}),
+ Object.freeze({name:'تابلو عمودی کوچک',size:Object.freeze([.45,.68,.045]),price:0}),
+ Object.freeze({name:'تابلو افقی کوچک',size:Object.freeze([.70,.44,.045]),price:0}),
+ Object.freeze({name:'تابلو مربعی متوسط',size:Object.freeze([.65,.65,.045]),price:0}),
+ Object.freeze({name:'تابلو افقی بزرگ',size:Object.freeze([1.20,.68,.045]),price:0}),
+ Object.freeze({name:'تابلو عمودی بزرگ',size:Object.freeze([.78,1.15,.045]),price:0}),
+ Object.freeze({name:'تابلو سه‌تکه',size:Object.freeze([1.25,.75,.045]),price:0})
 ]);
 export const wrappedAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
 export function pairAngle(a,b){return Math.atan2(-(b.z-a.z),b.x-a.x);}
 export class SpatialState{
- constructor(){this.origin=new THREE.Vector3();this.anchorYaw=0;this.heightOffset=0;this.locked=true;this.a=new THREE.Vector3(0,0,.7);this.b=new THREE.Vector3(4,0,.7);this.correction=1;this.actualLength=null;}
+ constructor(){this.origin=new THREE.Vector3();this.anchorYaw=0;this.heightOffset=0;this.locked=true;this.a=new THREE.Vector3(0,0,.7);this.b=new THREE.Vector3(4,0,.7);this.correction=1;this.actualLength=null;this.layoutOffset=new THREE.Vector3();this.layoutYaw=0;}
  get length(){return this.a.distanceTo(this.b);}
  get yaw(){return pairAngle(this.a,this.b);}
  get height(){return this.origin.y+this.heightOffset;}
@@ -33,7 +41,7 @@ export class SpatialState{
   const scale=this.length/actualMeters;if(!Number.isFinite(scale)||scale<=0)throw Error('ضریب اندازه معتبر نیست.');this.correction=scale;this.actualLength=actualMeters;return scale;
  }
  resetCalibration(){this.correction=1;this.actualLength=null;}
- apply(floorFrame,layout){floorFrame.position.copy(this.origin);floorFrame.position.y+=this.heightOffset;floorFrame.rotation.set(0,this.anchorYaw,0);layout.position.copy(this.a);layout.rotation.set(0,this.yaw,0);layout.scale.setScalar(this.correction);floorFrame.updateMatrixWorld(true);}
- snapshot(){return {a:this.a.toArray(),b:this.b.toArray(),correction:this.correction,actualLength:this.actualLength,heightOffset:this.heightOffset};}
- restore(state){if(!state)return;this.a.fromArray(state.a);this.b.fromArray(state.b);this.correction=state.correction;this.actualLength=state.actualLength;this.heightOffset=state.heightOffset;}
+ apply(floorFrame,layout){floorFrame.position.copy(this.origin);floorFrame.position.y+=this.heightOffset;floorFrame.rotation.set(0,this.anchorYaw,0);layout.position.copy(this.layoutOffset);layout.rotation.set(0,this.layoutYaw,0);layout.scale.setScalar(this.correction);floorFrame.updateMatrixWorld(true);}
+ snapshot(){return {a:this.a.toArray(),b:this.b.toArray(),correction:this.correction,actualLength:this.actualLength,heightOffset:this.heightOffset,layoutOffset:this.layoutOffset.toArray(),layoutYaw:this.layoutYaw};}
+ restore(state){if(!state)return;this.a.fromArray(state.a);this.b.fromArray(state.b);this.correction=state.correction;this.actualLength=state.actualLength;this.heightOffset=state.heightOffset;this.layoutOffset.fromArray(state.layoutOffset||state.a||[0,0,0]);this.layoutYaw=state.layoutYaw??this.yaw;}
 }
