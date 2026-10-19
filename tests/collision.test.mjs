@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {footprint,footprintsOverlap,moveWithoutOverlap,rotateWithoutOverlap,nearestFreeFootprint,isFloorSolid} from '../collision.js';
+import {footprint,footprintsOverlap,moveWithoutOverlap,rotateWithoutOverlap,moveGroupWithoutOverlap,rotateGroupWithoutOverlap,nearestFreeFootprint,isFloorSolid} from '../collision.js';
 const box=(x,z,w=2,d=1,a=0)=>footprint([w,.85,d],x,z,a);
 
 test('rotated footprints detect real contact',()=>{
@@ -56,4 +56,20 @@ test('deterministic 2000-case collision stress',()=>{
   if(active.some(b=>footprintsOverlap({...moving,angle:turned},b)))failures++;
  }
  assert.equal(failures,0);
+});
+
+test('linked dining table and chairs move as a collision-safe group',()=>{
+ const table=box(0,0,1.5,.85),chair=box(0,1,.48,.47),blocker=box(2.5,1,.5,.5);
+ const safe=moveGroupWithoutOverlap([table,chair],{x:4,z:0},[blocker]);
+ assert.ok(safe.x>1.8&&safe.x<2.05,JSON.stringify(safe));
+ assert.equal(footprintsOverlap({...chair,x:chair.x+safe.x,z:chair.z+safe.z},blocker),false);
+});
+
+test('linked chair rotation stops before hitting nearby sofa',()=>{
+ const table=box(0,0,1.5,.85),chair=box(0,1,.48,.47),blocker=box(1.2,.4,.5,.5);
+ const safe=rotateGroupWithoutOverlap([table,chair],Math.PI/2,[blocker]);
+ assert.ok(safe>=0&&safe<Math.PI/2);
+ const x=chair.x*Math.cos(safe)+chair.z*Math.sin(safe);
+ const z=-chair.x*Math.sin(safe)+chair.z*Math.cos(safe);
+ assert.equal(footprintsOverlap({...chair,x,z,angle:safe},blocker),false);
 });
