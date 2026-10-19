@@ -44,3 +44,16 @@ test('camera texture readback frees framebuffer and restores renderer state',()=
  assert.equal(result.pixels[0],90);
  assert.equal(current,'old');assert.equal(deleted,1);assert.equal(resets,1);
 });
+
+test('driver zeroed frames are rejected rather than saved as photographs',()=>{
+ let bound='main',deleted=0,resets=0;
+ const gl={
+  FRAMEBUFFER:1,FRAMEBUFFER_BINDING:2,COLOR_ATTACHMENT0:3,TEXTURE_2D:4,FRAMEBUFFER_COMPLETE:5,
+  RGBA:6,UNSIGNED_BYTE:7,NO_ERROR:0,createFramebuffer:()=>({}),
+  getParameter:()=>bound,bindFramebuffer:(_,fb)=>{bound=fb;},framebufferTexture2D:()=>{},
+  checkFramebufferStatus:()=>5,readPixels:(_,__,___,____,_____,______,pixels)=>pixels.fill(0),
+  getError:()=>0,deleteFramebuffer:()=>deleted++
+ };
+ assert.throws(()=>readCameraPixels({getContext:()=>gl,resetState:()=>resets++},{getCameraImage:()=>({})},{camera:{width:16,height:16}}),InternalCaptureUnavailable);
+ assert.equal(bound,'main');assert.equal(deleted,1);assert.equal(resets,1);
+});
