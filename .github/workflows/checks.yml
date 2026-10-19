@@ -1,7 +1,7 @@
 name: Tolica JavaScript checks
 on:
   push:
-    branches: [main, feature/ar-first-ui-decor-ruler-028]
+    branches: [main, feature/ar-first-ui-decor-ruler-028, feature/semantic-object-editor-032]
   pull_request:
     branches: [main]
 jobs:
