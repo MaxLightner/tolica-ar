@@ -11,7 +11,7 @@ function studioFixture(){
   floorNet:new THREE.Group(),ruler:new THREE.Group(),items:[],serial:0,photoMode:false,measureTool:{setCorrection(){},group:new THREE.Group(),active:false},
   makeLabel(){return new THREE.Sprite(new THREE.SpriteMaterial());},changed(){}
  });
- s.floorFrame.add(s.root,s.ruler,s.floorNet);return s;
+ s.floorFrame.add(s.root,s.ruler,s.floorNet);s.syncSpatial=()=>s.model.apply(s.floorFrame,s.root);return s;
 }
 for(const count of [2,4,6,8]){
  test(`dining layout for ${count} people has matching chairs and metric table dimensions`,()=>{
