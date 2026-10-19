@@ -114,7 +114,7 @@ async function render(){const version=++routeVersion;const route=location.hash.s
  if(route==='layouts'){
  const variants=layoutOptions(space);
  app.innerHTML=`<section class="page layouts-page">
- ${heading('۰۲ / چیدمان', ['پذیرایی','ناهارخوری','آشپزخانه'].includes(space)?'چیدمان مناسب ${fa(peopleCount)} نفر را انتخاب کن':'چیدمان ${space} را انتخاب کن',
+ ${heading('۰۲ / چیدمان', ['پذیرایی','ناهارخوری','آشپزخانه'].includes(space)?`چیدمان مناسب ${fa(peopleCount)} نفر را انتخاب کن`:`چیدمان ${space} را انتخاب کن`,
  'تمام پلان‌ها به آبجکت‌های واقعیِ مرحله AR متصل‌اند · ${styleChoice} · ${themes[themeIndex].name}','spaces')}
  <div class="layout-feed">${variants.map(({id,title,description},i)=>{
   const scene=buildLayout({room:space,kind:id,capacity:peopleCount}),stats=layoutSummary(scene);
