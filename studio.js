@@ -158,7 +158,7 @@ void main(){
   for(const m of this.items){
    m.userData.edges.material.color.set(m===mesh?'#d3a66e':'#8d7e6d');
    m.userData.edges.material.opacity=m===mesh?.48:.13;
-   if(m.material?.emissive){m.material.emissive.set(m===mesh?'#b79363':'#000000');m.material.emissiveIntensity=m===mesh?.17:0;}
+   if(m.material?.emissive&&!isLamp(m.userData.index)){m.material.emissive.set(m===mesh?'#b79363':'#000000');m.material.emissiveIntensity=m===mesh?.17:0;}
    if(m.userData.selectionHalo)m.userData.selectionHalo.visible=m===mesh;
   }
   if(mesh&&!mesh.userData.selectionHalo){
@@ -328,6 +328,8 @@ void main(){
    this.setRay(e,target);const hit=furnitureHit(this.ray,this.items.filter(x=>x.visible));if(!hit){this.select(null);this.gesture=null;return;}
    this.select(hit.object);
    if(isLamp(hit.object.userData.index)){
+    const canMoveByBase=hit.object.userData.index!==14;
+    if(!canMoveByBase){/* small table lamps move from their base; below shade */}
     const localHit=hit.object.worldToLocal(hit.point.clone());
     if(localHit.y> -hit.object.userData.height/2+.34){this.gesture=null;this.onHint?.('آباژور را از پایه بگیر و جابه‌جا کن.');return;}
    }
@@ -476,7 +478,7 @@ void main(){
    if(this.selected?.userData.edges){
     this.selected.userData.edges.material.opacity=.38+.10*Math.sin(time*.0035);
     if(this.selected.userData.selectionHalo)this.selected.userData.selectionHalo.material.opacity=.36+.14*Math.sin(time*.0028);
-    if(this.selected.material?.emissive)this.selected.material.emissiveIntensity=.13+.07*Math.sin(time*.0026);
+    if(this.selected.material?.emissive&&!isLamp(this.selected.userData.index))this.selected.material.emissiveIntensity=.13+.07*Math.sin(time*.0026);
    }
    if(time-this.lastSelectionUI>32){this.onSelectionScreen?.(this.selectionScreenPosition());this.lastSelectionUI=time;}
   }
