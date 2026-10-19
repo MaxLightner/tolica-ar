@@ -26,7 +26,7 @@ export class Studio{
     new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,
       uniforms:{phase:{value:0}},
       vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-      fragmentShader:'precision highp float;varying vec2 vUv;uniform float phase;void main(){vec2 p=vUv*2.-1.;float d=length(p);float ring=(1.-smoothstep(.70,.78,d))*smoothstep(.64,.72,d);float plus=max(1.-smoothstep(.095,.12,abs(p.x))*step(.38,abs(p.y)),1.-smoothstep(.095,.12,abs(p.y))*step(.38,abs(p.x)));plus*=1.-smoothstep(.4,.47,max(abs(p.x),abs(p.y)));float a=max(ring*.75,plus*.9)*(1.-smoothstep(.85,1.,d));gl_FragColor=vec4(.96,.79,.37,a*(.85+.15*sin(phase)));}' }));
+      fragmentShader:'precision highp float;varying vec2 vUv;uniform float phase;void main(){vec2 p=vUv*2.-1.;float d=length(p);float ring=(1.-smoothstep(.70,.78,d))*smoothstep(.64,.72,d);float xbar=(1.-smoothstep(.075,.11,abs(p.y)))*(1.-step(.42,abs(p.x)));float ybar=(1.-smoothstep(.075,.11,abs(p.x)))*(1.-step(.42,abs(p.y)));float plus=max(xbar,ybar);float a=max(ring*.75,plus*.9)*(1.-smoothstep(.85,1.,d));gl_FragColor=vec4(.96,.79,.37,a*(.85+.15*sin(phase)));}' }));
   this.placementMarker.visible=false;this.placementMarker.position.y=.035;this.placementMarker.renderOrder=9;this.root.add(this.placementMarker);
   // WebGL lineWidth is usually fixed on mobile: a shader gives a visible, soft grid.
    this.floorNet=new THREE.Mesh(
