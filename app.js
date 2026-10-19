@@ -97,8 +97,73 @@ async function render(){const version=++routeVersion;const route=location.hash.s
  if(route==='invoice'){const total=savedItems.reduce((s,m)=>s+m.price,0);app.innerHTML=`<section class="page">${heading('برآورد اولیه','پیش‌فاکتور آزمایشی','فقط برای بررسی تجربهٔ انتخاب؛ فاقد اعتبار خرید.','studio')}<div class="invoice"><div class="page-heading"><a class="brand" href="#welcome">TOLICA</a><span class="step">${new Date().toLocaleDateString('fa-IR')}<br>واحد: تومان</span></div><table><thead><tr><th>حجم نمونه</th><th>رنگ</th><th>تعداد</th><th>مبلغ فرضی</th></tr></thead><tbody>${savedItems.map(m=>`<tr><td>${m.name||'قطعه'} ${fa(m.id)}</td><td><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${m.color}"></span></td><td>۱</td><td>${fa(m.price)}</td></tr>`).join('')||'<tr><td colspan="4">هنوز باکسی انتخاب نشده است.</td></tr>'}</tbody><tfoot><tr><td colspan="3">جمع آزمایشی</td><td>${fa(total)} تومان</td></tr></tfoot></table><p>قیمت‌ها کاملاً فرضی‌اند. مالیات، ارسال و خدمات محاسبه نشده است. این صفحه سفارش یا پرداخت ایجاد نمی‌کند.</p></div><button id="print" class="primary no-print" style="margin-top:20px">چاپ / دریافت PDF</button></section>${footer()}`;$('#print').onclick=()=>window.print();return;}
  location.hash='welcome';
 }
-function handleARReport(report){arReport=report;refreshDebugPanel();const scanInfo=(!report.placed&&report.scanDrop!==null)?` · raw ${report.scanHits} · valid ${report.validHits} · cluster ${report.inlierHits} · vertical ${report.scanDrop.toFixed(2)}m · ray ${report.scanDistance.toFixed(2)}m`:'';$('#diagnostics').textContent=`${report.objects} objects · visible ${report.visible} · ${report.fps} FPS · tracking ${report.tracking?'OK':'LOST'} · hit ${report.placed?'LOCKED':report.hit?'READY':'SEARCH'} · placed ${report.placed?'YES':'NO'} · anchor ${report.anchor} · light ${report.light} · depth ${report.depth}${scanInfo}`;$('#confirmFloor').hidden=report.placed;$('#confirmFloor').disabled=!report.hit||!report.tracking;$('#arEditControls').hidden=!report.placed;$('#arSettings').hidden=!report.placed;updateMeasurements();}
-async function startAR(basic=false){if(!studio||studio.session||arStarting)return;arStarting=true;const button=$('#startAR');button.disabled=true;$('#arError').close();try{$('#overlay').hidden=false;$('#confirmFloor').hidden=false;$('#confirmFloor').disabled=true;$('#arEditControls').hidden=true;$('#arSettings').hidden=true;$('#arStatus').textContent='در حال شناسایی کف…';const result=await studio.startAR(message=>$('#arStatus').textContent=message,handleARReport,basic,{light:!basic&&$('#lightEnabled').checked,depth:!basic&&$('#depthEnabled').checked});if(!result.hasOverlay)$('#overlay').hidden=true;studio.setDebugVisible(debugEnabled);updateObjects();}catch(error){$('#overlay').hidden=true;const failure=explainXR(error);lastXRErrorReport=JSON.stringify({version:'0.2.8',mode:basic?'basic':'full',stage:failure.stage,name:failure.name,message:failure.detail,secureContext:isSecureContext,webXR:!!navigator.xr,supportCheck:supported,userAgent:navigator.userAgent},null,2);$('#arErrorMessage').textContent=failure.message;$('#arErrorDetails').textContent=lastXRErrorReport;$('#arError').showModal();console.error(error);}finally{arStarting=false;button.disabled=false;}}
+let arSheetMode=null;
+$('#arSettingsBin').append($('#arSettings'));
+function closeArSheet(){
+ const settings=$('#arSettings');if(settings.parentElement===$('#arSheetContent'))$('#arSettingsBin').append(settings);
+ settings.open=false;settings.hidden=true;
+ $('#arToolSheet').hidden=true;arSheetMode=null;
+}
+function showArSheet(mode){
+ if(!studio||!studio.placed)return;
+ if(arSheetMode===mode){closeArSheet();return;}
+ closeArSheet();arSheetMode=mode;
+ const body=$('#arSheetContent'),title=$('#arSheetTitle');body.innerHTML='';
+ if(mode==='add'){
+  title.textContent='افزودن به چیدمان';
+  body.innerHTML=`<div class="ar-object-grid">${catalogImages.map(([name],i)=>`<button data-add-object="${i}" class="catalog-tile">${objectIcon(i)}<span>${name}</span></button>`).join('')}</div><small class="sheet-tip">آبجکت به چیدمان اضافه می‌شود؛ برای جابه‌جایی آن را لمس کن و بکش. گلدان به میز و کوسن به مبل وصل می‌شوند، اگر موجود باشند.</small>`;
+  body.querySelectorAll('[data-add-object]').forEach(btn=>btn.onclick=()=>{
+   if(studio.items.length>=24){toast('برای سرعت اجرای AR، فعلاً حداکثر ۲۴ آبجکت اضافه کن.');return;}
+   const index=Number(btn.dataset.addObject);studio.add(index);closeArSheet();toast('«'+catalogImages[index][0]+'» اضافه شد؛ روی آن لمس و جابه‌جا کن.');
+  });
+ }else if(mode==='colors'){
+  title.textContent=studio.selected?'رنگ و متریال · '+studio.selected.userData.product.name:'ابتدا یک آبجکت انتخاب کن';
+  const colors=[...themes[themeIndex].colors,'#b6bca2','#70858b','#b79c85','#ae8574','#546356','#5f5753','#efe8df'];
+  body.innerHTML=`<div class="ar-color-grid">${colors.map((c,i)=>`<button data-material="${c}" title="${c}" aria-label="رنگ ${i+1}" style="--swatch:${c}"><span></span></button>`).join('')}</div><small class="sheet-tip">رنگ مدل انتخابی فوراً تغییر می‌کند. تکسچرهای واقعی با اضافه‌شدن مدل‌های GLB ارائه خواهند شد.</small>`;
+  body.querySelectorAll('[data-material]').forEach(btn=>btn.onclick=()=>{if(!studio.selected){toast('ابتدا یک مدل انتخاب کن.');return;}studio.color(btn.dataset.material);});
+ }else if(mode==='objects'){
+  title.textContent='اشیای چیدمان · '+fa(studio.items.length);
+  body.innerHTML=`<div class="ar-object-list">${studio.items.map(m=>`<button data-select-id="${m.userData.id}" class="${m===studio.selected?'selected':''}">${objectIcon(m.userData.index)}<span>${m.userData.product.name}</span><small>#${m.userData.id}</small></button>`).join('')}</div><div class="item-actions"><button id="selectedRotate">چرخش ۱۵°</button><button id="selectedDelete">حذف انتخاب‌شده</button></div><small class="sheet-tip">برای انتخاب از فهرست یا خود صحنه استفاده کن.</small>`;
+  body.querySelectorAll('[data-select-id]').forEach(btn=>btn.onclick=()=>{studio.select(studio.items.find(m=>m.userData.id===Number(btn.dataset.selectId)));showArSheet('objects');});
+  $('#selectedRotate').onclick=()=>{studio.rotate();toast('آبجکت چرخید.');};
+  $('#selectedDelete').onclick=()=>{if(studio.selected)studio.remove();showArSheet('objects');};
+ }else if(mode==='settings'){
+  title.textContent='تنظیمات AR و جهت چیدمان';
+  const details=$('#arSettings');details.hidden=false;details.open=true;body.append(details);
+  const status=document.createElement('p');status.className='xr-status';status.textContent='عمق: '+(arReport?.depth||'نامشخص')+' · نور: '+(arReport?.light||'نامشخص');body.append(status);
+  const note=document.createElement('small');note.className='sheet-tip';note.textContent='تغییر گزینه‌های نور و عمق پس از شروع مجدد AR اعمال می‌شود. خط A—B مستقل از خط‌کش اندازه‌گیری است.';body.append(note);
+ }
+ $('#arToolSheet').hidden=false;
+}
+$('#arSheetClose').onclick=closeArSheet;
+$('#arAddTool').onclick=()=>showArSheet('add');
+$('#arMaterialTool').onclick=()=>showArSheet('colors');
+$('#arListTool').onclick=()=>showArSheet('objects');
+$('#arSettingsTool').onclick=()=>showArSheet('settings');
+$('#arPhotoTool').onclick=()=>{closeArSheet();setPhotoMode(true);};
+$('#arRulerTool').onclick=()=>{
+ if(!studio||!studio.placed)return;
+ closeArSheet();
+ const active=studio.setMeasureActive(!studio.measureTool.active);
+ $('#arRulerTool').setAttribute('aria-pressed',String(active));$('#measureHint').hidden=!active;
+ $('#measureReadout').textContent=active?'نقطه اول را روی کف لمس کن':'';
+ if(active)toast('روی دو نقطه از کف لمس کن؛ فاصله برحسب متر نمایش داده می‌شود.');
+};
+$('#measureClear').onclick=()=>{studio?.clearMeasure();$('#measureReadout').textContent='نقطه اول را روی کف لمس کن';};
+function handleARReport(report){
+ arReport=report;refreshDebugPanel();
+ const scanInfo=(!report.placed&&report.scanDrop!==null)?` · raw ${report.scanHits} · valid ${report.validHits} · cluster ${report.inlierHits} · vertical ${report.scanDrop.toFixed(2)}m · ray ${report.scanDistance.toFixed(2)}m`:'';
+ $('#diagnostics').textContent=`${report.objects} objects · visible ${report.visible} · ${report.fps} FPS · tracking ${report.tracking?'OK':'LOST'} · hit ${report.placed?'LOCKED':report.hit?'READY':'SEARCH'} · placed ${report.placed?'YES':'NO'} · anchor ${report.anchor} · light ${report.light} · depth ${report.depth}${scanInfo}`;
+ $('#confirmFloor').hidden=report.placed;$('#confirmFloor').disabled=!report.hit||!report.tracking;
+ $('#arEditControls').hidden=true;
+ $('#arSettings').hidden=!(report.placed&&arSheetMode==='settings');
+ $('#arDock').hidden=!report.placed;
+ $('#arDock').classList.toggle('ready',report.placed);
+ $('#overlay').classList.toggle('floor-ready',report.placed);
+ if(!report.placed){closeArSheet();$('#measureHint').hidden=true;}
+ updateMeasurements();
+}
+async function startAR(basic=false){if(!studio||studio.session||arStarting)return;arStarting=true;const button=$('#startAR');button.disabled=true;$('#arError').close();try{$('#overlay').hidden=false;$('#confirmFloor').hidden=false;$('#confirmFloor').disabled=true;$('#arEditControls').hidden=true;$('#arDock').hidden=true;closeArSheet();$('#arSettings').hidden=true;$('#arStatus').textContent='در حال شناسایی کف…';const result=await studio.startAR(message=>$('#arStatus').textContent=message,handleARReport,basic,{light:!basic&&$('#lightEnabled').checked,depth:!basic&&$('#depthEnabled').checked});if(!result.hasOverlay)$('#overlay').hidden=true;studio.setDebugVisible(debugEnabled);updateObjects();}catch(error){$('#overlay').hidden=true;$('#arDock').hidden=true;const failure=explainXR(error);lastXRErrorReport=JSON.stringify({version:'0.2.8',mode:basic?'basic':'full',stage:failure.stage,name:failure.name,message:failure.detail,secureContext:isSecureContext,webXR:!!navigator.xr,supportCheck:supported,userAgent:navigator.userAgent},null,2);$('#arErrorMessage').textContent=failure.message;$('#arErrorDetails').textContent=lastXRErrorReport;$('#arError').showModal();console.error(error);}finally{arStarting=false;button.disabled=false;}}
 let debugEnabled=false;
 function refreshDebugPanel(){
  const panel=$('#arDebugPanel');if(!panel||panel.hidden||!studio)return;
