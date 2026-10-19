@@ -11,7 +11,7 @@ export function cropRect(width,height,ratio){
  const h=width/ratio;return {sx:0,sy:(height-h)/2,sw:width,sh:h};
 }
 export const CAMERA_RATIOS=Object.freeze({'9:16':9/16,'3:4':3/4,'1:1':1,'4:3':4/3,'16:9':16/9});
-export async function captureARScreen({ratio='4:3',getDisplayMedia=globalThis.navigator?.mediaDevices?.getDisplayMedia?.bind(globalThis.navigator.mediaDevices),doc=globalThis.document}={}){
+export async function captureARScreen({ratio='4:3',getDisplayMedia=globalThis.navigator?.mediaDevices?.getDisplayMedia?.bind(globalThis.navigator.mediaDevices),doc=globalThis.document,beforeFrame=async()=>{},afterFrame=()=>{}}={}){
  const aspect=CAMERA_RATIOS[ratio];
  if(!aspect)throw RangeError('Invalid aspect ratio');
  if(typeof getDisplayMedia!=='function'||!doc?.createElement)throw new ScreenshotUnavailable('این مرورگر امکان ثبت مستقیم تصویر AR را ندارد.');
@@ -36,6 +36,15 @@ export async function captureARScreen({ratio='4:3',getDisplayMedia=globalThis.na
    });
   }
   if(!video.videoWidth||!video.videoHeight)throw new ScreenshotUnavailable('وضوح تصویر مشخص نیست.');
+  // Remove viewfinder chrome from the captured frame after screen-sharing permission.
+  await beforeFrame();
+  if(typeof video.requestVideoFrameCallback==='function'){
+   await Promise.race([new Promise(resolve=>video.requestVideoFrameCallback(()=>resolve())),new Promise(resolve=>setTimeout(resolve,450))]);
+  }else{
+   await new Promise(resolve=>setTimeout(resolve,110));
+  }
+  if(track.readyState==='ended')throw new ScreenshotUnavailable('ضبط صفحه قبل از ثبت تصویر پایان یافت.');
+
   // Preserve whole scene dimensions as far as practical and avoid huge memory use.
   const {sx,sy,sw,sh}=cropRect(video.videoWidth,video.videoHeight,aspect);
   const outWidth=Math.max(1,Math.round(Math.min(sw,1600)));
@@ -52,6 +61,7 @@ export async function captureARScreen({ratio='4:3',getDisplayMedia=globalThis.na
   if(error?.name==='NotSupportedError'||error?.name==='TypeError')throw new ScreenshotUnavailable('ثبت مستقیم تصویر در این مرورگر یا حالت AR پشتیبانی نمی‌شود.');
   throw new ScreenshotUnavailable('ثبت تصویر AR انجام نشد؛ سازگاری ضبط صفحه دستگاه را بررسی کن.');
  }finally{
+  try{afterFrame();}catch{}
   stream?.getTracks().forEach(track=>track.stop());
   if(video){video.pause();video.srcObject=null;video.remove();}
  }
