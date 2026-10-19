@@ -51,3 +51,24 @@ test('semantic features and three lamp variants are registered',()=>{
   assert.ok(decor.includes(token));
  }
 });
+
+test('carpet has reusable real-size presets and retains rug design on resize',async()=>{
+ const {RUG_SIZE_PRESETS}=await import('../asset-metadata.js');
+ assert.ok(RUG_SIZE_PRESETS.length>=4);
+ assert.deepEqual(RUG_SIZE_PRESETS.find(x=>x.id==='200x300').size,[3,.015,2]);
+ assert.deepEqual(RUG_SIZE_PRESETS.find(x=>x.id==='300x400').size,[4,.015,3]);
+ const app=read('app.js'),studio=read('studio.js');
+ assert.match(app,/data-rug-size/);
+ assert.match(app,/studio\.setRugSize\(preset\.size\)/);
+ assert.match(studio,/setRugSize\(size\)/);
+ assert.match(studio,/applyRugStyle\(next,current\)/);
+});
+
+test('collision controls and table/chair rigid-group motion are connected',()=>{
+ const studio=read('studio.js');
+ for(const token of ['moveGroupWithoutOverlap','rotateGroupWithoutOverlap','safeObjectMotion(mesh,desired)','safeObjectRotation(mesh,desired)','tryPlaceNew(mesh,previous']){
+  assert.ok(studio.includes(token),token);
+ }
+ const pkg=JSON.parse(read('package.json'));
+ assert.ok(pkg.scripts.check.includes('node --check collision.js'));
+});
