@@ -235,6 +235,7 @@ void main(){
   return item;
  }
  updatePlacementMarker(time){
+  if(!this.placementMarker)return;
   if(!this.placementEnabled||!this.model.locked||!this.session||!this.tracking||this.photoMode){this.placementMarker.visible=false;return;}
   const camera=this.activeCamera(),eye=camera.getWorldPosition(new THREE.Vector3());
   const dir=new THREE.Vector3(0,0,-1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())).normalize();
