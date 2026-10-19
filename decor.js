@@ -8,6 +8,67 @@ const mat=(color,roughness=.88)=>new THREE.MeshStandardMaterial({color,roughness
 const add=(parent,geometry,material,x=0,y=0,z=0)=>{
  const part=new THREE.Mesh(geometry,material);part.position.set(x,y,z);parent.add(part);return part;
 };
+
+function buildLamp(index,[w,h,d],color){
+ const isDesk=index===14,isTripod=index===15;
+ const shadeH=isDesk?.24:isTripod?.42:.39;
+ const radius=isDesk?.155:isTripod?.24:.20;
+ const shade=new THREE.Mesh(new THREE.CylinderGeometry(radius*.84,radius,shadeH,16,1,true),
+   new THREE.MeshStandardMaterial({color,roughness:.8,side:THREE.DoubleSide,emissive:'#ffd095',emissiveIntensity:0}));
+ shade.geometry.translate(0,h/2-shadeH*.75,0);
+ const trim=mat('#72685b',.55),poleHeight=h-shadeH*.95;
+ if(isTripod){
+  for(let i=0;i<3;i++){
+   const a=i*Math.PI*2/3,leg=new THREE.Mesh(new THREE.CylinderGeometry(.016,.020,poleHeight,6),trim);
+   leg.position.set(Math.cos(a)*.12,-h/2+poleHeight*.5,Math.sin(a)*.12);
+   leg.rotation.z=Math.cos(a)*.20;leg.rotation.x=Math.sin(a)*.20;shade.add(leg);
+  }
+ }else{
+  add(shade,new THREE.CylinderGeometry(.017,.021,poleHeight,7),trim,0,-h/2+poleHeight/2,0);
+  add(shade,new THREE.CylinderGeometry(isDesk?.13:.19,isDesk?.13:.19,.026,12),trim,0,-h/2+.020,0);
+ }
+ const light=new THREE.PointLight(0xffcf8e,0,3.6,2);light.name='lamp-bulb';
+ light.position.set(0,h/2-shadeH*.90,0);light.castShadow=false;shade.add(light);
+ const glow=new THREE.Mesh(new THREE.SphereGeometry(radius*.78,10,8),
+  new THREE.MeshBasicMaterial({color:0xffdfb4,transparent:true,opacity:0,depthWrite:false}));
+ glow.name='lamp-visible-glow';glow.position.copy(light.position);glow.scale.y=.65;shade.add(glow);
+ shade.userData.lampKind=index===14?'table':index===15?'tripod':'cylinder';
+ return shade;
+}
+function artTexture(index){
+ if(typeof document==='undefined')return null;
+ const c=document.createElement('canvas');c.width=256;c.height=192;
+ const ctx=c.getContext('2d');
+ const palettes=[
+  ['#e5dbce','#a56d5f','#67887c'],['#dfd6c8','#627d8a','#bda47e'],
+  ['#ead8bd','#5b8574','#d0a66c'],['#ded6da','#8f6d77','#576c79'],
+  ['#e9dfd2','#916f56','#a1a89a'],['#e1d8c6','#597d7d','#c99775']
+ ];
+ const p=palettes[(index-16)%palettes.length];
+ ctx.fillStyle=p[0];ctx.fillRect(0,0,256,192);
+ ctx.fillStyle=p[1];
+ ctx.beginPath();ctx.ellipse(130,112,70,75,Math.PI/9,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle=p[2];
+ ctx.beginPath();ctx.moveTo(0,170);ctx.quadraticCurveTo(76,45,150,145);ctx.quadraticCurveTo(203,210,256,81);ctx.lineTo(256,192);ctx.lineTo(0,192);ctx.fill();
+ ctx.strokeStyle='#faf4e580';ctx.lineWidth=3;
+ for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(110+i*14,90+i*12,30+i*12,.6,2.3);ctx.stroke();}
+ const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=2;return t;
+}
+function buildWallArt(index,[w,h,d]){
+ const image=new THREE.Mesh(new THREE.BoxGeometry(w*.93,h*.93,.015),
+  new THREE.MeshStandardMaterial({color:'#fff',roughness:1,map:artTexture(index)}));
+ const wood=mat(index%2?'#3d4448':'#936e50',.7);
+ const frame=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),wood);
+ image.position.z=d/2+.009;frame.add(image);
+ if(index===21){
+  for(let i=0;i<3;i++){
+   const panel=new THREE.Mesh(new THREE.BoxGeometry(w*.30,h*.90,d),
+    new THREE.MeshStandardMaterial({color: i%2?'#9f897d':'#627e83',roughness:.85}));
+   panel.position.set((i-1)*w*.34,0,.010);frame.add(panel);
+  }
+ }
+ frame.name='framed-art-'+index;return frame;
+}
 export function createDecor(index,size,color){
  const [w,h,d]=size;
  if(index===4){ // Ceramic vase, separate neck, four green branches
@@ -33,16 +94,7 @@ export function createDecor(index,size,color){
   seam.rotation.x=Math.PI/2;seam.scale.set(1,d/w,1);pillow.add(seam);
   pillow.name='throw-pillow';return pillow;
  }
- if(index===6){ // Floor lamp, warm shade and small light (no shadow mapping)
-  const geometry=new THREE.CylinderGeometry(.16,.22,.32,14,1,true);
-  geometry.translate(0,h/2-.20,0);
-  const lamp=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color,roughness:.88,emissive:0x8b6941,emissiveIntensity:.15,side:THREE.DoubleSide}));
-  const metal=mat('#56504b',.35);
-  add(lamp,new THREE.CylinderGeometry(.025,.025,h-.25,8),metal,0,-.045,0);
-  add(lamp,new THREE.CylinderGeometry(.22,.22,.035,14),metal,0,-h/2+.025,0);
-  const warm=new THREE.PointLight(0xffd4a2,.32,1.8,2);warm.position.set(0,h/2-.32,0);lamp.add(warm);
-  lamp.name='warm-floor-lamp';return lamp;
- }
+ if(index===6||index===14||index===15)return buildLamp(index,size,color);
  if(index===7){
   // Flat textured rug. The textile image is generated once as a tiny canvas,
   // and is rendered with alpha-free color so camera-floor shadows stay visible.
@@ -91,5 +143,6 @@ export function createDecor(index,size,color){
   }
   table.name=index===12?'square-side-table':'large-square-coffee-table';return table;
  }
+ if(index>=16&&index<=21)return buildWallArt(index,size);
  throw Error('Unknown decor index: '+index);
 }
