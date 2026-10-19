@@ -4,6 +4,9 @@ import {captureARScreen,CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto,Screenshot
 import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.3.1';
 import {allowedCapacities,layoutOptions,buildLayout,layoutSummary,layoutPreviewSvg} from './layout-templates.js?v=0.3.1';
 import {readDraft,saveDraft,clearDraft,listCustomLayouts,saveCustomLayout,removeCustomLayout} from './layout-storage.js?v=0.3.1';
+import {ASSET_CATEGORIES,assetMetadata,variantsFor,isLamp,isSofa,isTable,isWallArt} from './asset-metadata.js?v=0.3.2';
+import {savedPlanSvg} from './saved-plan.js?v=0.3.2';
+import {CUSHION_PRESETS} from './sofa-cushions.js?v=0.3.2';
 const $=s=>document.querySelector(s),app=$('#app'),fa=n=>n.toLocaleString('fa-IR');
 let studio,Scene,palette,space='پذیرایی',layout='conversation',supported=false,routeVersion=0,photoURLs=[],savedItems=[],arReport=null,sceneMemory=null,arStarting=false,lastXRErrorReport='';
 const themes=[
@@ -26,7 +29,15 @@ const catalogImages=[
  ['میز ناهارخوری','<rect x="20" y="22" width="60" height="58" rx="8"/><path d="M31 13h38M31 88h38M11 36v30m78-30v30"/>'],
  ['صندلی ناهارخوری','<rect x="29" y="20" width="42" height="58" rx="5"/><path d="M29 36h42M36 68h28"/>'],
  ['میز عسلی مربعی','<rect x="25" y="24" width="50" height="50" rx="5"/><path d="M36 33h28v32H36z"/>'],
- ['میز جلو مبلی مربعی بزرگ','<rect x="13" y="13" width="74" height="74" rx="6"/><path d="M27 27h46v46H27z"/>']
+ ['میز جلو مبلی مربعی بزرگ','<rect x="13" y="13" width="74" height="74" rx="6"/><path d="M27 27h46v46H27z"/>'],
+ ['آباژور رومیزی','<path d="M34 38h32l8 22H26zM50 60v20M37 83h26"/>'],
+ ['آباژور سه‌پایه','<path d="M36 22h28l12 30H24zM50 52L27 87M50 52v35m0-35 23 35"/>'],
+ ['تابلو عمودی کوچک','<rect x="33" y="12" width="34" height="77"/><path d="M40 57l10-22 11 15"/>'],
+ ['تابلو افقی کوچک','<rect x="16" y="31" width="68" height="38"/><path d="M23 61l16-21 21 17 13-20"/>'],
+ ['تابلو مربع','<rect x="24" y="21" width="52" height="55"/><path d="M30 70l14-27 14 10 10-19"/>'],
+ ['تابلو افقی بزرگ','<rect x="8" y="28" width="84" height="46"/><path d="M14 68l25-27 19 14 20-21"/>'],
+ ['تابلو عمودی بزرگ','<rect x="28" y="8" width="44" height="84"/><path d="M33 82l20-28 14 13"/>'],
+ ['تابلو سه‌تکه','<rect x="5" y="24" width="28" height="59"/><rect x="37" y="13" width="28" height="70"/><rect x="69" y="24" width="26" height="59"/>']
 ];
 function objectIcon(index){return `<svg viewBox="0 0 100 100" class="object-icon" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">${catalogImages[index]?.[1]||''}</svg>`;}
 function planSketch(kind){return layoutPreviewSvg(buildLayout({room:space,kind,capacity:peopleCount}));}
