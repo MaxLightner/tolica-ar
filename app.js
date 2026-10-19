@@ -1,6 +1,7 @@
-import {explainXR} from './xr.js?v=0.3.0';
+import {explainXR} from './xr.js?v=0.3.1';
 import {photos,savePhoto,removePhoto} from './storage.js';
-import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.3.0';
+import {captureARScreen,CAMERA_RATIOS,ScreenshotUnavailable} from './camera-capture.js?v=0.3.1';
+import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.3.1';
 const $=s=>document.querySelector(s),app=$('#app'),fa=n=>n.toLocaleString('fa-IR');
 let studio,Scene,palette,space='پذیرایی',layout='calm',supported=false,routeVersion=0,photoURLs=[],savedItems=[],arReport=null,sceneMemory=null,arStarting=false,lastXRErrorReport='';
 const themes=[
@@ -68,7 +69,7 @@ function heading(step,title,sub,back){return `<div class="page-heading"><div><sp
 async function full(){if(document.fullscreenElement){await document.exitFullscreen();return;}if(!document.documentElement.requestFullscreen){toast('مرورگر شما تمام‌صفحه را پشتیبانی نمی‌کند.');return;}try{await document.documentElement.requestFullscreen();}catch{toast('ورود به تمام‌صفحه ممکن نشد؛ می‌توانی ادامه بدهی.');}}
 $('#fullscreen').onclick=full;document.addEventListener('fullscreenchange',()=>$('#fullscreen').textContent=document.fullscreenElement?'خروج از تمام‌صفحه ↙':'تمام‌صفحه ⛶');
 async function support(){try{supported=!!(isSecureContext&&navigator.xr&&await navigator.xr.isSessionSupported('immersive-ar'));}catch{supported=false;}return supported;}
-async function loadScene(){if(!Scene){const m=await import('./scene.js?v=0.3.0');Scene=m.Studio;palette=m.palette;}}
+async function loadScene(){if(!Scene){const m=await import('./scene.js?v=0.3.1');Scene=m.Studio;palette=m.palette;}}
 function updateObjects(){if(!studio)return;const buttons=studio.items.map(m=>`<button data-object="${m.userData.id}" class="${m===studio.selected?'selected':''}">${m.userData.product.name}</button>`).join('');for(const selector of ['#objects']){const el=$(selector);if(el){el.innerHTML=buttons||'<small>یک قطعه اضافه کن.</small>';el.querySelectorAll('[data-object]').forEach(b=>b.onclick=()=>studio.select(studio.items.find(m=>m.userData.id===+b.dataset.object)));}}
  const mesh=studio.selected,label=mesh?mesh.userData.product.name+' · '+mesh.userData.product.size.map(v=>fa(Math.round(v*100))).join(' × ')+' سانتی‌متر':'یک قطعه را لمس کن';for(const id of ['selection','arSelection']){const el=$('#'+id);if(el)el.textContent=label;}
  const rotation=$('#rotation');if(rotation)rotation.value=mesh?Math.round(mesh.rotation.y*180/Math.PI)%360:0;
@@ -113,7 +114,7 @@ async function render(){const version=++routeVersion;const route=location.hash.s
   studio=new Scene($('#viewport'),updateObjects);
   if(sceneMemory)studio.restoreState(sceneMemory);else{studio.seed(layout,space,peopleCount);const colors=themes[themeIndex].colors;studio.items.forEach((m,i)=>{if(m.userData.index!==7)m.material.color.set(colors[i%colors.length]);});}
   studio.onEnd=()=>{setPhotoMode(false);closeArSheet();$('#arDock').hidden=true;$('#objectQuick').hidden=true;$('#scanReadiness').hidden=true;$('#measureHint').hidden=true;};
-  studio.onPhotoTap=revealPhotoExit;
+  studio.onPhotoTap=()=>{};
   studio.onHint=toast;
   studio.onSelectionScreen=position=>{
    const quick=$('#objectQuick');if(!quick)return;
@@ -203,32 +204,6 @@ function showArSheet(mode){
    body.querySelectorAll('[data-sofa-seats]').forEach(btn=>btn.onclick=()=>{studio.setSofaSeats(Number(btn.dataset.sofaSeats));closeArSheet();showArSheet('features');});
   }else if(index===7){closeArSheet();showArSheet('colors');return;}
   else body.innerHTML='<p class="sheet-tip">برای این آبجکت می‌توانی رنگ، جایگاه و مدل را تغییر بدهی. قابلیت‌های بیشتر بعداً اضافه می‌شوند.</p>';
- }else if(mode==='camera'){
-  title.textContent='دوربین و گالری تولیکا';
-  body.innerHTML=`<div class="camera-actions">
-   <button id="photoCleanMode">◎ ثبت عکس از صفحه دستگاه</button>
-   <label>＋ افزودن اسکرین‌شات به گالری<input id="arUploadPhoto" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
-  </div><div id="inlineGallery" class="inline-gallery"><small>در حال بارگذاری عکس‌ها…</small></div>
-  <small class="sheet-tip">مرورگر فعلاً تصویر واقعی دوربین WebXR را همراه مبلمان به‌صورت فایل مستقیم ارائه نمی‌دهد. در حالت عکاسی با دکمه اسکرین‌شات گوشی عکس بگیر و آن را به گالری اضافه کن.</small>`;
-  $('#photoCleanMode').onclick=()=>{closeArSheet();setPhotoMode(true);};
-  $('#arUploadPhoto').onchange=async e=>{
-   const file=e.target.files?.[0];if(!file)return;
-   if(file.size>15*1024*1024){toast('عکس باید کمتر از ۱۵ مگابایت باشد.');return;}
-   try{await savePhoto(file,'اسکرین‌شات تولیکا');closeArSheet();showArSheet('camera');}
-   catch(error){toast('ذخیره عکس ممکن نشد.');}
-  };
-  photos().then(list=>{
-   if(arSheetMode!=='camera'||!$('#inlineGallery'))return;
-   const gallery=$('#inlineGallery');gallery.innerHTML='';
-   const latest=list.sort((a,b)=>b.date-a.date).slice(0,12);
-   if(!latest.length){gallery.textContent='هنوز عکسی ذخیره نشده است.';return;}
-   for(const photo of latest){
-    const url=URL.createObjectURL(photo.blob);photoURLs.push(url);
-    const btn=document.createElement('button');btn.className='inline-photo';
-    const img=document.createElement('img');img.src=url;img.alt='تصویر ذخیره‌شده';btn.append(img);
-    btn.onclick=()=>openArPhotoEditor(photo.blob);gallery.append(btn);
-   }
-  }).catch(()=>{$('#inlineGallery').textContent='گالری در دسترس نیست.';});
  }else if(mode==='settings'){
   title.textContent='تنظیمات AR و جهت چیدمان';
   const details=$('#arSettings');details.hidden=false;details.open=true;body.append(details);
@@ -236,50 +211,6 @@ function showArSheet(mode){
   const note=document.createElement('small');note.className='sheet-tip';note.textContent='تنظیمات عمق و نور بعد از شروع دوباره AR اعمال می‌شوند؛ A—B مستقل از خط‌کش مجازی است.';body.append(note);
  }
  $('#arToolSheet').hidden=false;
-}
-async function openArPhotoEditor(blob){
- if(!blob)return;
- const el=$('#arSheetContent');$('#arSheetTitle').textContent='تنظیم قاب عکس';
- const original=URL.createObjectURL(blob);photoURLs.push(original);
- el.innerHTML=`<div class="photo-edit-preview"><img id="photoRatioPreview" src="${original}" alt="پیش‌نمایش عکس"></div>
- <div class="ratio-pills">${[['9:16',9/16],['3:4',3/4],['1:1',1],['4:3',4/3],['16:9',16/9]].map(([n,r])=>`<button data-photo-ratio="${r}" class="${n==='4:3'?'selected':''}">${n}</button>`).join('')}</div>
- <div class="camera-actions"><button id="saveRatioPhoto">ذخیره نسخه با قاب جدید</button><button id="shareToAI">اشتراک با برنامه AI ↗</button></div>
- <small class="sheet-tip">تغییر نسبت تصویر، فقط کادر موجود را برش می‌دهد؛ نشان دادن بخش‌های خارج از عکس نیازمند Generative Expand است. برای ارسال، برنامه مقصد را از منوی اشتراک دستگاه انتخاب کن.</small>`;
- let currentBlob=null,working=false;
- const crop=async ratio=>{
-  working=true;$('#saveRatioPhoto').disabled=true;$('#shareToAI').disabled=true;
-  const bitmap=await createImageBitmap(blob);
-  const sw=Math.min(bitmap.width,bitmap.height*ratio),sh=Math.min(bitmap.height,bitmap.width/ratio);
-  const width=Math.round(Math.min(1600,sw)),height=Math.round(width/ratio);
-  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
-  const context=canvas.getContext('2d');context.drawImage(bitmap,(bitmap.width-sw)/2,(bitmap.height-sh)/2,sw,sh,0,0,width,height);
-  bitmap.close();
-  currentBlob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.85));
-  $('#photoRatioPreview').style.aspectRatio=ratio;
-  $('#photoRatioPreview').style.objectFit='cover';
-  working=false;$('#saveRatioPhoto').disabled=false;$('#shareToAI').disabled=false;
- };
- el.querySelectorAll('[data-photo-ratio]').forEach(btn=>btn.onclick=()=>{
-  el.querySelectorAll('[data-photo-ratio]').forEach(b=>b.classList.toggle('selected',b===btn));
-  crop(Number(btn.dataset.photoRatio)).catch(()=>toast('تنظیم قاب انجام نشد.'));
- });
- await crop(4/3);
- $('#saveRatioPhoto').onclick=async()=>{
-  if(working||!currentBlob)return;
-  try{await savePhoto(currentBlob,'عکس با نسبت تصویر اصلاح‌شده');toast('نسخه اصلاح‌شده در گالری ذخیره شد.');}
-  catch{toast('ذخیره عکس انجام نشد.');}
- };
- $('#shareToAI').onclick=()=>{
-  if(working||!currentBlob)return;
-  const file=new File([currentBlob],'tolica-composition.jpg',{type:'image/jpeg'});
-  if(navigator.canShare?.({files:[file]})&&navigator.share){
-   navigator.share({files:[file],title:'TOLICA · چیدمان'}).catch(()=>{});
-  }else{
-   const url=URL.createObjectURL(file),a=document.createElement('a');
-   a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
-   toast('عکس آماده شد؛ برای ارسال به هوش مصنوعی، آن را در برنامه مقصد بارگذاری کن.');
-  }
- };
 }
 $('#arSheetClose').onclick=closeArSheet;
 $('#arAddTool').onclick=()=>showArSheet('add');
@@ -291,7 +222,7 @@ $('#quickRotate').onclick=()=>studio?.rotate();
 $('#quickDelete').onclick=()=>{studio?.remove();};
 $('#arListTool').onclick=()=>showArSheet('objects');
 $('#arSettingsTool').onclick=()=>showArSheet('settings');
-$('#arPhotoTool').onclick=()=>showArSheet('camera');
+$('#arPhotoTool').onclick=()=>setPhotoMode(true);
 $('#arRulerTool').onclick=()=>{
  if(!studio||!studio.placed)return;
  closeArSheet();
@@ -329,7 +260,7 @@ function handleARReport(report){
  if(!report.placed){closeArSheet();$('#measureHint').hidden=true;}
  updateMeasurements();
 }
-async function startAR(basic=false){if(!studio||studio.session||arStarting)return;arStarting=true;const button=$('#startAR');button.disabled=true;$('#arError').close();try{$('#overlay').hidden=false;$('#confirmFloor').hidden=false;$('#confirmFloor').disabled=true;$('#arEditControls').hidden=true;$('#arDock').hidden=true;$('#objectQuick').hidden=true;$('#scanReadiness').hidden=false;$('#scanProgress').value=12;$('#scanStage').textContent='راه‌اندازی AR…';$('#scanPercent').textContent='۱۲٪';closeArSheet();$('#arSettings').hidden=true;$('#arStatus').textContent='در حال شناسایی کف…';const result=await studio.startAR(message=>$('#arStatus').textContent=message,handleARReport,basic,{light:!basic&&$('#lightEnabled').checked,depth:!basic&&$('#depthEnabled').checked});if(!result.hasOverlay)$('#overlay').hidden=true;studio.setDebugVisible(debugEnabled);updateObjects();}catch(error){$('#overlay').hidden=true;$('#arDock').hidden=true;const failure=explainXR(error);lastXRErrorReport=JSON.stringify({version:'0.3.0',mode:basic?'basic':'full',stage:failure.stage,name:failure.name,message:failure.detail,secureContext:isSecureContext,webXR:!!navigator.xr,supportCheck:supported,userAgent:navigator.userAgent},null,2);$('#arErrorMessage').textContent=failure.message;$('#arErrorDetails').textContent=lastXRErrorReport;$('#arError').showModal();console.error(error);}finally{arStarting=false;button.disabled=false;}}
+async function startAR(basic=false){if(!studio||studio.session||arStarting)return;arStarting=true;const button=$('#startAR');button.disabled=true;$('#arError').close();try{$('#overlay').hidden=false;$('#confirmFloor').hidden=false;$('#confirmFloor').disabled=true;$('#arEditControls').hidden=true;$('#arDock').hidden=true;$('#objectQuick').hidden=true;$('#scanReadiness').hidden=false;$('#scanProgress').value=12;$('#scanStage').textContent='راه‌اندازی AR…';$('#scanPercent').textContent='۱۲٪';closeArSheet();$('#arSettings').hidden=true;$('#arStatus').textContent='در حال شناسایی کف…';const result=await studio.startAR(message=>$('#arStatus').textContent=message,handleARReport,basic,{light:!basic&&$('#lightEnabled').checked,depth:!basic&&$('#depthEnabled').checked});if(!result.hasOverlay)$('#overlay').hidden=true;studio.setDebugVisible(debugEnabled);updateObjects();}catch(error){$('#overlay').hidden=true;$('#arDock').hidden=true;const failure=explainXR(error);lastXRErrorReport=JSON.stringify({version:'0.3.1',mode:basic?'basic':'full',stage:failure.stage,name:failure.name,message:failure.detail,secureContext:isSecureContext,webXR:!!navigator.xr,supportCheck:supported,userAgent:navigator.userAgent},null,2);$('#arErrorMessage').textContent=failure.message;$('#arErrorDetails').textContent=lastXRErrorReport;$('#arError').showModal();console.error(error);}finally{arStarting=false;button.disabled=false;}}
 let debugEnabled=false;
 function refreshDebugPanel(){
  const panel=$('#arDebugPanel');if(!panel||panel.hidden||!studio)return;
@@ -355,7 +286,7 @@ function saveDebugJSON(){
 function openGitHubDebugIssue(){
  if(!studio)return;
  const data=studio.debugExport(),last=studio.debugView.lastState;
- const body=['## TOLICA AR diagnostic report','Version: v0.3.0','Started: '+(data.startedAt||'unknown'),'','### Latest readout','```',studio.debugView.summary(),'```','','### Events','```',JSON.stringify(data.events.slice(-12),null,2),'```','','### Device test notes','(Describe whether the floor was above or below the carpet.)','','The full time-series log is available via the Save JSON button. Attach it manually if needed.'].join('\\n');
+ const body=['## TOLICA AR diagnostic report','Version: v0.3.1','Started: '+(data.startedAt||'unknown'),'','### Latest readout','```',studio.debugView.summary(),'```','','### Events','```',JSON.stringify(data.events.slice(-12),null,2),'```','','### Device test notes','(Describe whether the floor was above or below the carpet.)','','The full time-series log is available via the Save JSON button. Attach it manually if needed.'].join('\\n');
  const url='https://github.com/MaxLightner/tolica-ar/issues/new?title='+encodeURIComponent('AR floor detection debug report')+'&body='+encodeURIComponent(body);
  window.open(url,'_blank','noopener');
 }
@@ -363,10 +294,109 @@ $('#debugToggle').onclick=()=>setDebug(!debugEnabled);
 $('#debugHide').onclick=()=>setDebug(false);
 $('#debugSave').onclick=saveDebugJSON;
 $('#debugGithub').onclick=openGitHubDebugIssue;
-let photoTimer;
-function revealPhotoExit(){$('#photoReturn').classList.add('revealed');clearTimeout(photoTimer);photoTimer=setTimeout(()=>$('#photoReturn').classList.remove('revealed'),3000);}
-function setPhotoMode(enabled){if(!studio)return;studio.setPhotoMode(enabled);$('#overlay').classList.toggle('photography',enabled);$('#photoReturn').hidden=!enabled;if(enabled){revealPhotoExit();toast('پس از ۳ ثانیه ابزارها مخفی می‌شوند؛ اسکرین‌شات گوشی بگیر. برای بازگشت صفحه را لمس کن.');}else{clearTimeout(photoTimer);$('#photoReturn').classList.remove('revealed');}}
-$('#photoReturn').onclick=()=>setPhotoMode(false);$('#photoAR').onclick=()=>setPhotoMode(true);
+const CAMERA_KIND='tolica-camera';
+let cameraObjectURLs=[],cameraBusy=false,cameraActive=false;
+function cameraPhotoURL(blob){
+ const url=URL.createObjectURL(blob);cameraObjectURLs.push(url);return url;
+}
+function clearCameraURLs(){cameraObjectURLs.forEach(URL.revokeObjectURL);cameraObjectURLs=[];}
+async function cameraShots(){
+ // Imported images, device gallery photos and earlier uploads are not shown here.
+ return (await photos()).filter(photo=>photo.kind===CAMERA_KIND).sort((a,b)=>b.date-a.date);
+}
+async function updateCameraLast(){
+ if(!cameraActive)return;
+ try{
+  const latest=(await cameraShots())[0],image=$('#cameraLastImage'),placeholder=$('#cameraLastPlaceholder');
+  clearCameraURLs();
+  image.hidden=!latest;placeholder.hidden=!!latest;
+  if(latest)image.src=cameraPhotoURL(latest.blob);else image.removeAttribute('src');
+ }catch{cameraNotice('دسترسی به عکس‌های تولیکا ممکن نیست.');}
+}
+function cameraNotice(message){
+ const el=$('#cameraNotice');el.textContent=message;el.hidden=false;
+}
+function setPhotoMode(enabled){
+ if(!studio)return;
+ cameraActive=!!enabled;
+ if(enabled){
+  closeArSheet();
+  $('#cameraGallery').hidden=true;
+  $('#cameraMode').classList.remove('gallery-open','capturing');
+  $('#cameraNotice').hidden=true;
+  studio.setPlacementEnabled(false);
+ }
+ studio.setPhotoMode(enabled);
+ $('#overlay').classList.toggle('photography',enabled);
+ $('#cameraMode').hidden=!enabled;
+ $('#objectQuick').hidden=true;
+ if(enabled){updateCameraLast();setCameraRatio();}else{
+  $('#cameraGallery').hidden=true;
+  $('#cameraMode').classList.remove('gallery-open','capturing');
+  clearCameraURLs();
+ }
+}
+function setCameraRatio(){
+ const ratio=CAMERA_RATIOS[$('#cameraRatio').value]||4/3;
+ $('#cameraFraming').style.aspectRatio=ratio;
+}
+$('#cameraRatio').onchange=setCameraRatio;
+$('#cameraClose').onclick=()=>setPhotoMode(false);
+$('#cameraGalleryBack').onclick=()=>{
+ $('#cameraGallery').hidden=true;$('#cameraMode').classList.remove('gallery-open');
+};
+$('#cameraLast').onclick=()=>openCameraGallery();
+async function openCameraGallery(){
+ if(!cameraActive)return;
+ $('#cameraGallery').hidden=false;$('#cameraMode').classList.add('gallery-open');
+ const host=$('#cameraGalleryItems');host.replaceChildren();
+ try{
+  const shots=await cameraShots();
+  if(!cameraActive||$('#cameraGallery').hidden)return;
+  $('#cameraGalleryCount').textContent=fa(shots.length);
+  if(!shots.length){
+   host.textContent='هنوز عکسی با شاتر تولیکا ثبت نشده است.';
+   return;
+  }
+  for(const record of shots){
+   const card=document.createElement('article');card.className='camera-shot-card';
+   const img=document.createElement('img');img.src=cameraPhotoURL(record.blob);img.alt='عکس تولیکا';
+   const actions=document.createElement('div');actions.className='camera-shot-actions';
+   const download=document.createElement('a');download.textContent='ذخیره در دستگاه';download.href=img.src;
+   download.download='tolica-'+record.id+'.jpg';
+   const del=document.createElement('button');del.textContent='حذف';del.onclick=async()=>{
+    if(!confirm('این عکس از گالری تولیکا حذف شود؟'))return;
+    await removePhoto(record.id);await updateCameraLast();await openCameraGallery();
+   };
+   actions.append(download,del);card.append(img,actions);host.append(card);
+  }
+ }catch{host.textContent='گالری تولیکا در این مرورگر در دسترس نیست.';}
+}
+$('#cameraShutter').onclick=async()=>{
+ if(!studio?.session||!cameraActive||cameraBusy)return;
+ cameraBusy=true;$('#cameraShutter').disabled=true;$('#cameraNotice').hidden=true;
+ try{
+  const blob=await captureARScreen({
+   ratio:$('#cameraRatio').value,
+   beforeFrame:async()=>{
+    $('#cameraMode').classList.add('capturing');
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+   },
+   afterFrame:()=>$('#cameraMode').classList.remove('capturing')
+  });
+  if(!cameraActive)return;
+  await savePhoto(blob,CAMERA_KIND);
+  await updateCameraLast();
+  $('#cameraShutter').classList.add('flash');
+  setTimeout(()=>$('#cameraShutter').classList.remove('flash'),240);
+  cameraNotice('عکس در گالری اختصاصی تولیکا ذخیره شد.');
+ }catch(error){
+  cameraNotice(error instanceof ScreenshotUnavailable?error.message:'ثبت عکس ممکن نشد. دسترسی به ضبط صفحه و فضای ذخیره‌سازی را بررسی کن.');
+ }finally{
+  $('#cameraMode').classList.remove('capturing');
+  cameraBusy=false;$('#cameraShutter').disabled=false;
+ }
+};
 $('#closeARError').onclick=()=>$('#arError').close();$('#basicAR').onclick=()=>startAR(true);$('#copyARError').onclick=async()=>{try{await navigator.clipboard.writeText(lastXRErrorReport);toast('گزارش کپی شد.');}catch{toast('از جزئیات خطا عکس بگیر.');}};
 $('#overlay').addEventListener('beforexrselect',event=>event.preventDefault());$('#homeAR').onclick=async()=>{try{if(studio?.session)await studio.session.end();}catch{}sceneMemory=null;location.hash='welcome';};$('#resetAR').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;$('#confirmFloor').hidden=false;$('#confirmFloor').disabled=true;$('#arEditControls').hidden=true;$('#arSettings').hidden=true;}catch(error){toast('اسکن دوباره اجرا نشد.');}};$('#leaveAR').onclick=async()=>{try{await studio?.session?.end();}catch{toast('دکمهٔ بازگشت گوشی را بزن.');}};$('#confirmFloor').onclick=()=>studio?.confirmFloor();$('#rescanFloor').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;}catch(error){toast('اسکن دوباره راه‌اندازی نشد؛ از AR خارج شو و دوباره وارد شو.');}};
 $('#rotateAR').onclick=()=>{if(studio?.selected)studio.rotate(studio.selected.rotation.y*180/Math.PI+15);};$('#deleteAR').onclick=()=>studio?.remove();$('#colorAR').onclick=()=>{if(studio?.selected){const current='#'+studio.selected.material.color.getHexString();studio.color(palette[(palette.indexOf(current)+1)%palette.length]);}};$('#addAR').onclick=()=>{if(studio.items.length>=16){toast('حد آزمون این نسخه ۱۶ قطعه است.');return;}studio.add(Number($('#arProduct').value));};$('#closePhoto').onclick=()=>$('#photoHelp').close();
