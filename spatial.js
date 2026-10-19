@@ -13,7 +13,15 @@ export const CATALOG=Object.freeze([
  Object.freeze({name:'میز ناهارخوری',size:Object.freeze([1.7,.75,.86]),price:0}),
  Object.freeze({name:'صندلی ناهارخوری',size:Object.freeze([.48,.90,.47]),price:0}),
  Object.freeze({name:'میز عسلی مربعی',size:Object.freeze([.48,.48,.48]),price:0}),
- Object.freeze({name:'میز جلو مبلی مربعی',size:Object.freeze([1.15,.42,1.15]),price:0})
+ Object.freeze({name:'میز جلو مبلی مربعی',size:Object.freeze([1.15,.42,1.15]),price:0}),
+ Object.freeze({name:'آباژور رومیزی',size:Object.freeze([.35,.55,.35]),price:0}),
+ Object.freeze({name:'آباژور سه‌پایه',size:Object.freeze([.55,1.6,.55]),price:0}),
+ Object.freeze({name:'تابلو عمودی کوچک',size:Object.freeze([.45,.68,.045]),price:0}),
+ Object.freeze({name:'تابلو افقی کوچک',size:Object.freeze([.70,.44,.045]),price:0}),
+ Object.freeze({name:'تابلو مربعی متوسط',size:Object.freeze([.65,.65,.045]),price:0}),
+ Object.freeze({name:'تابلو افقی بزرگ',size:Object.freeze([1.20,.68,.045]),price:0}),
+ Object.freeze({name:'تابلو عمودی بزرگ',size:Object.freeze([.78,1.15,.045]),price:0}),
+ Object.freeze({name:'تابلو سه‌تکه',size:Object.freeze([1.25,.75,.045]),price:0})
 ]);
 export const wrappedAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
 export function pairAngle(a,b){return Math.atan2(-(b.z-a.z),b.x-a.x);}
