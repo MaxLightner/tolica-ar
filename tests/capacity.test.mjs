@@ -8,7 +8,7 @@ function studioFixture(){
  const s=Object.create(Studio.prototype);
  Object.assign(s,{
   model:new SpatialState(),root:new THREE.Group(),floorFrame:new THREE.Group(),
-  floorNet:new THREE.Group(),ruler:new THREE.Group(),items:[],serial:0,photoMode:false,measureTool:{setCorrection(){}},
+  floorNet:new THREE.Group(),ruler:new THREE.Group(),items:[],serial:0,photoMode:false,measureTool:{setCorrection(){},group:new THREE.Group(),active:false},
   makeLabel(){return new THREE.Sprite(new THREE.SpriteMaterial());},changed(){}
  });
  s.floorFrame.add(s.root,s.ruler,s.floorNet);return s;
