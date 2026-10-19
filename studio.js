@@ -12,7 +12,7 @@ import {ARDebugView} from './ar-debug.js?v=0.2.6';
 import {buildLayout} from './layout-templates.js?v=0.3.1';
 import {assetMetadata,isLamp,isSofa,isTable,isWallArt} from './asset-metadata.js?v=0.3.2';
 import {installSofaCushions} from './sofa-cushions.js?v=0.3.2';
-import {isFloorSolid,footprint,footprintsOverlap,moveWithoutOverlap,rotateWithoutOverlap,nearestFreeFootprint} from './collision.js?v=0.3.4';
+import {isFloorSolid,footprint,footprintsOverlap,moveWithoutOverlap,rotateWithoutOverlap,moveGroupWithoutOverlap,rotateGroupWithoutOverlap,nearestFreeFootprint} from './collision.js?v=0.3.4';
 export const palette=['#b6bca2','#d5c4ad','#b9c4c6','#ba9380'];
 const fa=n=>n.toLocaleString('fa-IR',{maximumFractionDigits:1});
 export class Studio{
@@ -324,7 +324,7 @@ void main(){
  clear(){for(const m of this.items){this.root.remove(m);this.disposeObject(m);}this.items=[];this.selected=null;this.serial=0;this.changed();}
  disposeObject(object){object.traverse(o=>{o.geometry?.dispose();if(o.material){o.material.map?.dispose();o.material.dispose();}});}
  rotate(degrees){if(!this.selected)return;const mesh=this.selected;const desired=degrees===undefined?mesh.rotation.y+Math.PI/4:degrees*Math.PI/180;
-  mesh.rotation.y=isFloorSolid(mesh.userData.index)?rotateWithoutOverlap(this.collisionShape(mesh),desired,this.collisionObstacles(mesh)):desired;
+  mesh.rotation.y=this.safeObjectRotation(mesh,desired);
   this.keepOnFloor(mesh);this.refreshAttachments();this.changed();}
  color(color){if(this.selected){this.selected.material.color.set(color);this.changed();}}
  calibrate(cm){this.model.calibrate(Number(cm)/100);this.measureTool.setCorrection(this.model.correction);this.syncSpatial();this.changed();return this.measurement();}
@@ -352,7 +352,36 @@ void main(){
    return this.items.filter(m=>m!==excluded&&!ignored.includes(m)&&m.visible&&isFloorSolid(m.userData.index))
     .map(m=>this.collisionShape(m));
   }
-  tryPlaceNew(mesh,previous=null,maxRadius=2.3){
+  linkedChairs(mesh){
+    return mesh.userData.index===10?this.items.filter(item=>item.userData.tableId===mesh.userData.id&&item!==mesh):[];
+   }
+   safeObjectMotion(mesh,desired){
+    if(!isFloorSolid(mesh.userData.index))return desired;
+    const linked=this.linkedChairs(mesh),start=this.collisionShape(mesh);
+    const fixed=this.collisionObstacles(mesh,linked);
+    const safe=linked.length?
+     moveGroupWithoutOverlap([start,...linked.map(m=>this.collisionShape(m))],desired,fixed):
+     moveWithoutOverlap(start,desired,fixed);
+    const dx=safe.x-mesh.position.x,dz=safe.z-mesh.position.z;
+    for(const chair of linked){chair.position.x+=dx;chair.position.z+=dz;}
+    return safe;
+   }
+   safeObjectRotation(mesh,desired){
+    if(!isFloorSolid(mesh.userData.index))return desired;
+    const linked=this.linkedChairs(mesh),fixed=this.collisionObstacles(mesh,linked);
+    const safe=linked.length?
+     rotateGroupWithoutOverlap([this.collisionShape(mesh),...linked.map(m=>this.collisionShape(m))],desired,fixed):
+     rotateWithoutOverlap(this.collisionShape(mesh),desired,fixed);
+    const diff=safe-mesh.rotation.y,c=Math.cos(diff),s=Math.sin(diff);
+    for(const chair of linked){
+     const dx=chair.position.x-mesh.position.x,dz=chair.position.z-mesh.position.z;
+     chair.position.x=mesh.position.x+dx*c+dz*s;
+     chair.position.z=mesh.position.z-dx*s+dz*c;
+     chair.rotation.y+=diff;
+    }
+    return safe;
+   }
+   tryPlaceNew(mesh,previous=null,maxRadius=2.3){
    if(!mesh||!isFloorSolid(mesh.userData.index))return !!mesh;
    const found=nearestFreeFootprint(this.collisionShape(mesh),this.collisionObstacles(mesh),maxRadius);
    if(!found){
@@ -386,7 +415,7 @@ void main(){
  twistAngle(target){const [a,b]=[...this.points.values()];if(!a||!b)return null;const dx=b.clientX-a.clientX,dy=b.clientY-a.clientY;if(Math.hypot(dx,dy)<.5)return null;return Math.atan2(-dy,dx);}
  startTwist(target){const angle=this.twistAngle(target);if(angle!==null)this.gesture={kind:'twist',start:angle,rotation:this.selected.rotation.y};}
  drag(e,target){if(!this.points.has(e.pointerId)||this.photoMode||(this.session&&!this.tracking))return;e.preventDefault();this.points.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});const g=this.gesture;if(!g)return;
-  if(this.points.size===2&&this.selected){if(g.kind!=='twist'){this.startTwist(target);return;}const angle=this.twistAngle(target);if(angle!==null){const desired=g.rotation+wrappedAngle(angle-g.start);this.selected.rotation.y=isFloorSolid(this.selected.userData.index)?rotateWithoutOverlap(this.collisionShape(this.selected),desired,this.collisionObstacles(this.selected)):desired;}this.keepOnFloor(this.selected);this.refreshAttachments();return;}
+  if(this.points.size===2&&this.selected){if(g.kind!=='twist'){this.startTwist(target);return;}const angle=this.twistAngle(target);if(angle!==null){const desired=g.rotation+wrappedAngle(angle-g.start);this.selected.rotation.y=this.safeObjectRotation(this.selected,desired);}this.keepOnFloor(this.selected);this.refreshAttachments();return;}
   if(this.points.size!==1||g.kind==='twist')return;const p=this.pointOnFloor(e,target);if(!p)return;
   if(g.kind==='layout'){
    this.model.layoutOffset.copy(this.floorLocal(p).add(g.offset));this.syncSpatial();return;
@@ -396,7 +425,7 @@ void main(){
     const dx=local.x-mesh.position.x,dz=local.z-mesh.position.z,dist=Math.hypot(dx,dz);
     const step=this.session ? .48 : .85,factor=dist>step?step/dist:1;
     const desired={x:mesh.position.x+dx*factor,z:mesh.position.z+dz*factor};
-    const safe=isFloorSolid(mesh.userData.index)?moveWithoutOverlap(this.collisionShape(mesh),desired,this.collisionObstacles(mesh)):desired;
+    const safe=this.safeObjectMotion(mesh,desired);
     mesh.position.x=safe.x;mesh.position.z=safe.z;
     if([4,14].includes(this.selected.userData.index)){this.snapToSupport(this.selected);}else{this.keepOnFloor(this.selected);if(this.selected.userData.attachment){const link=this.selected.userData.attachment,base=this.items.find(m=>m.userData.id===link.id);if(base){const offset=this.selected.position.clone().sub(base.position).applyAxisAngle(new THREE.Vector3(0,1,0),-base.rotation.y);link.offset[0]=offset.x;link.offset[2]=offset.z;}}this.refreshAttachments();}}
   else if(g.kind==='A'){this.model.moveA(this.floorLocal(p).add(g.offset));this.syncSpatial();}
