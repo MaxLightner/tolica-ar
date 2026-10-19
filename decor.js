@@ -55,5 +55,34 @@ export function createDecor(index,size,color){
   const smaller=add(mesh,new THREE.PlaneGeometry(.3,.3).rotateX(-Math.PI/2),mat(color),0,.006,0);smaller.rotation.y=Math.PI/4;
   mesh.name='flat-area-rug';return mesh;
  }
+ if(index===8){ // Bed: mattress, frame, headboard, pillows.
+  const geometry=new THREE.BoxGeometry(w-.06,.24,d-.11);
+  geometry.translate(0,-h/2+.47,.03);
+  const bed=new THREE.Mesh(geometry,mat(color,.97));
+  const wood=mat('#846c58',.76);
+  add(bed,new THREE.BoxGeometry(w,.21,d),wood,0,-h/2+.24,0);
+  add(bed,new THREE.BoxGeometry(w,.60,.13),mat('#99897c'),0,-h/2+.61,-d/2+.055);
+  const linen=mat('#ece6dc',1);
+  for(const x of [-.37,.37])add(bed,new THREE.BoxGeometry(.53,.09,.36),linen,x,-h/2+.65,-d/2+.38);
+  bed.name='minimal-double-bed';return bed;
+ }
+ if(index===9||index===10){ // Work desk / dining table, solid geometry with real scale.
+  const geometry=new THREE.BoxGeometry(w,.07,d);
+  geometry.translate(0,h/2-.035,0);
+  const table=new THREE.Mesh(geometry,mat(color,.7));
+  const legs=mat('#716257',.72);
+  for(const x of [-1,1])for(const z of [-1,1])add(table,new THREE.CylinderGeometry(.025,.035,h-.08,7),legs,x*(w/2-.11),-.04,z*(d/2-.11));
+  if(index===9)add(table,new THREE.BoxGeometry(w*.54,.12,d*.67),mat('#a6917c'),0,h/2-.16,-d*.1);
+  table.name=index===9?'simple-writing-desk':'modern-dining-table';return table;
+ }
+ if(index===11){ // Slim dining/desk chair.
+  const geometry=new THREE.BoxGeometry(w,.085,d);
+  geometry.translate(0,-h/2+.48,0);
+  const chair=new THREE.Mesh(geometry,mat(color,.88));
+  add(chair,new THREE.BoxGeometry(w,.49,.065),mat(color,.84),0,-h/2+.71,-d/2+.027);
+  const legs=mat('#675a4e',.8);
+  for(const x of [-1,1])for(const z of [-1,1])add(chair,new THREE.CylinderGeometry(.020,.023,.45,6),legs,x*(w/2-.08),-h/2+.225,z*(d/2-.08));
+  chair.name='minimal-dining-chair';return chair;
+ }
  throw Error('Unknown decor index: '+index);
 }
