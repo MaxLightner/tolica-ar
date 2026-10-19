@@ -38,6 +38,12 @@ export function readCameraPixels(renderer,binding,view){
   const pixels=new Uint8Array(width*height*4);
   gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
   if(gl.getError()!==gl.NO_ERROR)throw new InternalCaptureUnavailable('خواندن تصویر دوربین توسط درایور دستگاه رد شد.');
+  // Some drivers return an all-black placeholder before the first authorised camera frame.
+  let valid=false;
+  for(let i=0;i<pixels.length;i+=Math.max(4,Math.floor(pixels.length/2048/4)*4)){
+   if(pixels[i]+pixels[i+1]+pixels[i+2]>8){valid=true;break;}
+  }
+  if(!valid)throw new InternalCaptureUnavailable('دوربین فریم تصویری معتبر نداد؛ چند لحظه بعد دوباره امتحان کن.');
   return {width,height,pixels};
  }finally{
   gl.bindFramebuffer(gl.FRAMEBUFFER,previous);
