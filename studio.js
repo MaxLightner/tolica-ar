@@ -22,7 +22,7 @@ export class Studio{
   this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));this.renderer.xr.enabled=true;this.renderer.xr.setReferenceSpaceType('local');host.prepend(this.renderer.domElement);
   this.effects=new EnvironmentEffects(this.scene,this.renderer);
   this.floorFrame=new THREE.Group();this.scene.add(this.floorFrame);this.root=new THREE.Group();this.floorFrame.add(this.root);
-  this.placementEnabled=false;this.placementPoint=null;this.lastSelectionUI=0;this.moveLayoutMode=false;
+  this.placementEnabled=false;this.placementPoint=null;this.lastSelectionUI=0;this.layoutMoveMode=false;this.moveLayoutMode=false;
   this.measureTool=new MeasureTool(this.floorFrame,text=>this.makeLabel(text));this.measureTool.label.userData.updateText=text=>this.setLabel(this.measureTool.label,text);
   // The landing pin is on the already-locked virtual floor; it never changes ARCore tracking.
   this.placementMarker=new THREE.Mesh(new THREE.PlaneGeometry(.66,.66).rotateX(-Math.PI/2),
@@ -80,6 +80,8 @@ void main(){
   this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(host);this.syncSpatial();this.resize();this.renderer.setAnimationLoop((time,frame)=>this.frame(time,frame));
  }
  get placed(){return this.model.locked;}
+ setLayoutMoveMode(value){this.layoutMoveMode=!!value;this.cancelGesture();this.setGuides();return this.layoutMoveMode;}
+
  setMoveLayoutMode(value){this.moveLayoutMode=!!value;this.cancelGesture();this.onHint?.(this.moveLayoutMode?'برای حرکت کل چیدمان، نقطه‌ای از زمین را لمس کن و بکش.':'حالت جابه‌جایی چیدمان بسته شد.');return this.moveLayoutMode;}
  rotateLayout(degrees=15){this.model.layoutYaw+=degrees*Math.PI/180;this.syncSpatial();this.changed();}
 
@@ -118,7 +120,8 @@ void main(){
    const sofa=this.items.find(m=>m!==mesh&&(m.userData.index===0||m.userData.index===1));
    if(sofa)mesh.userData.attachment={id:sofa.userData.id,offset:[0,.56+h/2-sofa.userData.height/2,.20]};
   }
-  this.refreshAttachments();if(isLamp(index))this.initializeLamp(mesh,options.lampOn===true);if(!options.silentSelect)this.select(mesh);this.setGuides();return mesh;
+  this.refreshAttachments();if(isLamp(index)){this.initializeLamp(mesh,options.lampOn===true);if(index===14&&position)this.snapToSupport(mesh);}
+  if(!options.silentSelect)this.select(mesh);this.setGuides();return mesh;
  }
  addContactShadow(mesh,w,d,h,opacity){
   // Radial darkening decal, alpha blended against the real-world passthrough
@@ -219,20 +222,21 @@ void main(){
   const index=count===1?1:0,w={1:.9,2:1.62,3:2.1}[count];
   this.replaceSelected(index,{size:[w,.85,.9],seats:count});return true;
  }
- snapVase(mesh){
-  if(!mesh||mesh.userData.index!==4)return;
-  const table=this.items.filter(other=>other!==mesh&&other.visible&&isTable(other.userData.index))
-   .find(other=>{
-    const offset=mesh.position.clone().sub(other.position).applyAxisAngle(new THREE.Vector3(0,1,0),-other.rotation.y);
-    const surface=other.userData.asset?.supportSurfaces?.find(x=>x.kind==='horizontal');
-    return surface&&Math.abs(offset.x)<=surface.width/2&&Math.abs(offset.z)<=surface.depth/2;
-   });
-  if(!table){mesh.userData.attachment=null;mesh.position.y=mesh.userData.height/2;return;}
-  const offset=mesh.position.clone().sub(table.position).applyAxisAngle(new THREE.Vector3(0,1,0),-table.rotation.y);
-  offset.y=table.userData.height/2+mesh.userData.height/2;
-  mesh.userData.attachment={id:table.userData.id,offset:offset.toArray()};
-  this.refreshAttachments();
+ snapToSupport(mesh,allowed=[2,9,10,12,13]){
+  if(!mesh)return null;
+  const base=this.items.find(other=>{
+   if(other===mesh||!other.visible||!allowed.includes(other.userData.index))return false;
+   const point=mesh.position.clone().sub(other.position).applyAxisAngle(new THREE.Vector3(0,1,0),-other.rotation.y);
+   const surface=other.userData.asset?.supportSurfaces?.find(x=>x.kind==='horizontal');
+   return !!surface&&Math.abs(point.x)<surface.width/2&&Math.abs(point.z)<surface.depth/2;
+  });
+  if(!base){mesh.userData.attachment=null;mesh.position.y=mesh.userData.height/2;return null;}
+  const offset=mesh.position.clone().sub(base.position).applyAxisAngle(new THREE.Vector3(0,1,0),-base.rotation.y);
+  offset.y=base.userData.height/2+mesh.userData.height/2;
+  mesh.userData.attachment={id:base.userData.id,offset:offset.toArray()};
+  this.refreshAttachments();return base;
  }
+ snapVase(mesh){if(mesh?.userData.index!==4)return;this.snapToSupport(mesh);}
  initializeLamp(mesh,on){
   mesh.userData.lampOn=!!on;
   mesh.traverse(o=>{
@@ -258,6 +262,7 @@ void main(){
   const item=this.add(index,new THREE.Vector3(this.placementPoint.x,h/2,this.placementPoint.z));
   if(index===10){item.userData.capacity=4;this.setDiningCapacity(4);}
   if(index===4)this.snapVase(item);
+  if(index===14)this.snapToSupport(item);
   return item;
  }
  updatePlacementMarker(time){
@@ -316,6 +321,7 @@ void main(){
    return;
   }
   if(!this.model.locked||(this.session&&!this.tracking)||this.points.size>=2||(this.points.size===1&&['A','B'].includes(this.gesture?.kind)))return;e.preventDefault();target.setPointerCapture(e.pointerId);this.points.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});
+  if(this.layoutMoveMode&&this.points.size===1){const p=this.pointOnFloor(e,target);if(p)this.gesture={kind:'layout',start:this.floorLocal(p),offset:this.model.layoutOffset.clone()};return;}
   if(this.points.size===1){const p=this.pointOnFloor(e,target);if(!p){this.cancelGesture();return;}
    if(this.moveLayoutMode){this.gesture={kind:'layout',offset:this.model.layoutOffset.clone().sub(this.floorLocal(p))};return;}
    const handle=this.hitHandle(e,target);if(handle){this.gesture={kind:handle,offset:this.model[handle.toLowerCase()].clone().sub(this.floorLocal(p))};return;}
@@ -336,7 +342,8 @@ void main(){
   if(g.kind==='layout'){
    this.model.layoutOffset.copy(this.floorLocal(p).add(g.offset));this.syncSpatial();return;
   }
-  if(g.kind==='object'&&this.selected){const local=this.rootLocal(p).add(g.offset);this.selected.position.x=local.x;this.selected.position.z=local.z;if(this.selected.userData.index===4){this.snapVase(this.selected);}else{this.keepOnFloor(this.selected);if(this.selected.userData.attachment){const link=this.selected.userData.attachment,base=this.items.find(m=>m.userData.id===link.id);if(base){const offset=this.selected.position.clone().sub(base.position).applyAxisAngle(new THREE.Vector3(0,1,0),-base.rotation.y);link.offset[0]=offset.x;link.offset[2]=offset.z;}}this.refreshAttachments();}}
+  if(g.kind==='layout'){const current=this.floorLocal(p);this.model.layoutOffset.copy(g.offset).add(current.sub(g.start));this.syncSpatial();}
+  else if(g.kind==='object'&&this.selected){const local=this.rootLocal(p).add(g.offset);this.selected.position.x=local.x;this.selected.position.z=local.z;if([4,14].includes(this.selected.userData.index)){this.snapToSupport(this.selected);}else{this.keepOnFloor(this.selected);if(this.selected.userData.attachment){const link=this.selected.userData.attachment,base=this.items.find(m=>m.userData.id===link.id);if(base){const offset=this.selected.position.clone().sub(base.position).applyAxisAngle(new THREE.Vector3(0,1,0),-base.rotation.y);link.offset[0]=offset.x;link.offset[2]=offset.z;}}this.refreshAttachments();}}
   else if(g.kind==='A'){this.model.moveA(this.floorLocal(p).add(g.offset));this.syncSpatial();}
   else if(g.kind==='B'){this.model.moveB(this.floorLocal(p).add(g.offset));this.syncSpatial();}
  }
@@ -421,7 +428,7 @@ void main(){
   if(this.anchorNodes.length>=5){this.hitSource?.cancel();this.hitSource=null;}
  }
  selectAR(event){if(!this.model.locked)return;const pose=event.frame.getPose(event.inputSource.targetRaySpace,this.renderer.xr.getReferenceSpace());if(!pose)return;const matrix=new THREE.Matrix4().fromArray(pose.transform.matrix);this.ray.ray.origin.setFromMatrixPosition(matrix);this.ray.ray.direction.set(0,0,-1).transformDirection(matrix);this.floorFrame.updateMatrixWorld(true);const hit=furnitureHit(this.ray,this.items);if(hit)this.select(hit.object);}
- endSession(){try{this.hitSource?.cancel();}catch{}for(const s of this.extraHitSources)try{s.cancel();}catch{}this.extraHitSources=[];this.hitSource=null;this.debugView.note('AR session ended');this.measureTool?.setActive(false);this.setPlacementEnabled(false);this.dropAnchor();this.needsAnchor=false;this.session=null;this.model.origin.set(0,0,0);this.model.anchorYaw=0;this.model.heightOffset=0;this.model.locked=true;this.tracking=true;this.root.visible=true;this.photoMode=false;this.scanMarkers.visible=false;this.syncSpatial();this.setGuides();this.effects.reset();this.scene.background=new THREE.Color('#eeeee3');this.camera.position.set(5.2,4.4,6);this.camera.lookAt(.6,0,-.5);this.cancelGesture();this.resize();document.querySelector('#overlay').hidden=true;this.onEnd?.();this.changed();}
+ endSession(){try{this.hitSource?.cancel();}catch{}for(const s of this.extraHitSources)try{s.cancel();}catch{}this.extraHitSources=[];this.hitSource=null;this.debugView.note('AR session ended');this.measureTool?.setActive(false);this.setPlacementEnabled(false);this.dropAnchor();this.needsAnchor=false;this.layoutMoveMode=false;this.session=null;this.model.origin.set(0,0,0);this.model.anchorYaw=0;this.model.heightOffset=0;this.model.locked=true;this.tracking=true;this.root.visible=true;this.photoMode=false;this.scanMarkers.visible=false;this.syncSpatial();this.setGuides();this.effects.reset();this.scene.background=new THREE.Color('#eeeee3');this.camera.position.set(5.2,4.4,6);this.camera.lookAt(.6,0,-.5);this.cancelGesture();this.resize();document.querySelector('#overlay').hidden=true;this.onEnd?.();this.changed();}
  frame(time,frame){
   if(frame&&this.session){const space=this.renderer.xr.getReferenceSpace(),pose=frame.getViewerPose(space);this.tracking=!!pose;
    if(!pose){this.cancelGesture();this.status('ردیابی قطع شد؛ چیدمان جابجا نمی‌شود. دوربین را آرام به محیط برگردان.');}
