@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import {createFurniture,furnitureHit} from './furniture.js?v=0.2.7';
+import {createFurniture,furnitureHit} from './furniture.js?v=0.3.0';
 import {createDecor} from './decor.js?v=0.3.0';
 import {applyRugStyle} from './rug-textures.js?v=0.3.0';
 import {MeasureTool} from './measure-tool.js?v=0.2.8';
