@@ -26,7 +26,7 @@ function join(parts){
  const values=[];for(const geometry of parts){const g=geometry.index?geometry.toNonIndexed():geometry;values.push(...g.attributes.position.array);if(g!==geometry)g.dispose();geometry.dispose();}
  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(values,3));geometry.computeVertexNormals();return geometry;
 }
-export function createFurniture(index,size,color){
+export function createFurniture(index,size,color,seatCountOverride=null){
  const [w,h,d]=size,body=[],legs=[];
  const add=(collection,name,width,height,depth,x,y,z,bevel=0)=>{
   const geometry=bevel?cushion(width,height,depth,bevel):new THREE.BoxGeometry(width,height,depth);
@@ -37,7 +37,7 @@ export function createFurniture(index,size,color){
   names.push(add(body,'tabletop',w,.065,d,0,h-.0325,0,.018));
   for(const x of [-1,1])for(const z of [-1,1])names.push(add(legs,'leg',.055,h-.065,.055,x*(w/2-.10),(h-.065)/2,z*(d/2-.10)));
  }else{
-  const arm=.115,back=.16,seatCount=index===0?3:1,inside=w-2*arm;
+  const arm=.115,back=.16,seatCount=seatCountOverride??(index===0?3:1),inside=w-2*arm;
   names.push(add(body,'base',w-.04,.18,d-.04,0,.29,0,.018));
   for(const x of [-1,1])names.push(add(body,'arm',arm,.39,d,x*(w-arm)/2,.435,0,.026));
   const seatDepth=d-back-.025;

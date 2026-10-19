@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import {applyRugStyle} from './rug-textures.js?v=0.3.0';
 
 // Lightweight, self-contained decor: no remote assets, textures, or licensing dependencies.
 // Like the furniture meshes, the main mesh origin sits at its geometric center.
@@ -42,18 +43,13 @@ export function createDecor(index,size,color){
   const warm=new THREE.PointLight(0xffd4a2,.32,1.8,2);warm.position.set(0,h/2-.32,0);lamp.add(warm);
   lamp.name='warm-floor-lamp';return lamp;
  }
- if(index===7){ // Carpet geometry is only centimetres above the selected floor.
-  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(w,d).rotateX(-Math.PI/2),mat(color,.99));
-  const border=mat('#e5d9c8',1);
-  for(const dir of [-1,1]){
-   add(mesh,new THREE.PlaneGeometry(w-.07,.023).rotateX(-Math.PI/2),border,0,.003,dir*(d/2-.075));
-   add(mesh,new THREE.PlaneGeometry(.023,d-.07).rotateX(-Math.PI/2),border,dir*(w/2-.075),.003,0);
-  }
-  const design=mat('#bba999');
-  const diamond=add(mesh,new THREE.PlaneGeometry(.48,.48).rotateX(-Math.PI/2),design,0,.004,0);
-  diamond.rotation.y=Math.PI/4;
-  const smaller=add(mesh,new THREE.PlaneGeometry(.3,.3).rotateX(-Math.PI/2),mat(color),0,.006,0);smaller.rotation.y=Math.PI/4;
-  mesh.name='flat-area-rug';return mesh;
+ if(index===7){
+  // Flat textured rug. The textile image is generated once as a tiny canvas,
+  // and is rendered with alpha-free color so camera-floor shadows stay visible.
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(w,d).rotateX(-Math.PI/2),
+   new THREE.MeshStandardMaterial({color,roughness:1,side:THREE.DoubleSide}));
+  applyRugStyle(mesh,'laki');
+  mesh.name='woven-area-rug';return mesh;
  }
  if(index===8){ // Bed: mattress, frame, headboard, pillows.
   const geometry=new THREE.BoxGeometry(w-.06,.24,d-.11);

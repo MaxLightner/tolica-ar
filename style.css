@@ -170,3 +170,60 @@
  .ar-dock{width:min(65vw,420px)}
  .ar-tool-sheet{width:min(55vw,470px)}
 }
+
+/* Tolica 0.3.0: real-world onboarding, floating object controls, rug patterns */
+[hidden]{display:none!important}
+.onboarding{inset:10px 7% 104px!important;gap:5px;justify-content:center}
+.onboarding .launch-plan{height:min(17svh,142px);width:min(45vw,190px);flex-shrink:0}
+.onboarding h2{font-size:clamp(16px,2.5vw,23px);margin:0 0 4px}
+.onboard-steps{display:grid;gap:5px;max-width:470px;width:100%;text-align:right;direction:rtl}
+.onboard-steps>div{display:flex;align-items:center;gap:11px;background:#f2e8ddec;border:1px solid #e3d3c3;border-radius:12px;padding:9px 10px}
+.onboard-steps>div>span{flex:0 0 28px;width:28px;height:28px;display:grid;place-items:center;border-radius:50%;font-size:13px;color:white;background:#697668}
+.onboard-steps p{margin:0;display:flex;flex-direction:column;gap:2px}
+.onboard-steps strong{font-size:13px;line-height:1.3}
+.onboard-steps small{font-size:11px;line-height:1.5;color:#827264}
+.scan-readiness{position:absolute;top:max(107px,calc(env(safe-area-inset-top) + 90px));left:12px;right:12px;max-width:465px;margin:auto;z-index:7;pointer-events:none;background:#f8efe7ef;border:1px solid #e9dbc8;border-radius:14px;padding:11px 13px;color:#3b4c44;box-shadow:0 3px 15px #0002;direction:rtl}
+.scan-readiness-row{display:flex;justify-content:space-between;gap:8px;font-size:12px}
+.scan-readiness-row strong{font-weight:600}
+.scan-readiness progress{display:block;appearance:none;width:100%;height:8px;border:0;border-radius:8px;overflow:hidden;margin-top:9px}
+.scan-readiness progress::-webkit-progress-bar{background:#cdd7cf;border-radius:9px}
+.scan-readiness progress::-webkit-progress-value{background:#4c9481;border-radius:9px;transition:width .25s ease}
+.scan-readiness progress::-moz-progress-bar{background:#4c9481}
+.scan-readiness small{display:block;font-size:9px;color:#887969;line-height:1.6;margin-top:4px}
+.object-quick{position:absolute;left:50%;top:45%;z-index:15;transform:translate(-50%,-50%);display:flex;flex-direction:column;gap:3px;padding:4px;background:#f3ebdfec;border:1px solid #dacbbb;border-radius:14px;box-shadow:0 4px 20px #16171466;pointer-events:auto;backdrop-filter:blur(10px)}
+.object-quick button{width:38px;height:38px;min-height:38px;padding:0;border:0;background:transparent;color:#4d5b53;border-radius:10px;font-size:22px;display:grid;place-items:center;line-height:1}
+.object-quick button:active{background:#dbdfd3}
+.object-quick #quickDelete{color:#a14f44}
+.ar-list-row{display:flex;gap:4px;align-items:center;background:#ede2d6;border:1px solid #d4c2ae;border-radius:11px;padding:4px}
+.ar-list-row.selected{border-color:#b28b63;box-shadow:0 0 0 1px #b28b6360}
+.ar-list-row .ar-list-select{flex:1;min-width:0;display:flex;align-items:center;gap:7px;border:0;background:none;text-align:right;font-size:12px}
+.ar-list-row .ar-list-select .object-icon{width:36px;height:36px;flex:0 0 36px}
+.ar-list-row>button:not(.ar-list-select){min-width:31px;height:35px;border:0;background:#e1d2c2;border-radius:8px;font-size:20px;padding:0}
+.ar-list-row>button:last-child{color:#9c5142}
+.rug-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:10px 0}
+.rug-grid button{display:grid;gap:6px;justify-items:center;border:1px solid #d4c5b3;border-radius:13px;background:#ede4db;padding:9px 5px;color:#5c5148}
+.rug-grid button.selected{border:2px solid #5f8572;background:#e6e9dd}
+.rug-grid img{display:block;width:min(100%,88px);aspect-ratio:2/3;object-fit:cover;border-radius:4px;box-shadow:0 3px 8px #24170e40}
+.rug-grid span{font-size:11px;text-align:center}
+.feature-action{width:100%;padding:14px;font-size:13px;background:#52695d;color:white;border-radius:11px;border:0;margin-top:12px}
+.feature-options{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.feature-options button{padding:9px 15px;border-radius:12px;min-height:43px;font-size:13px}
+.feature-options .selected{background:#556b5c;color:white}
+.feature-caption{font-size:13px;margin:10px 0}
+#overlay.photography .object-quick,#overlay.photography .scan-readiness{visibility:hidden;pointer-events:none}
+@media(min-width:600px){.onboard-steps{max-width:550px;gap:8px}.onboard-steps>div{padding:12px}.onboard-steps strong{font-size:16px}.onboard-steps small{font-size:13px}.object-quick button{width:44px;height:44px;font-size:26px}.rug-grid span{font-size:14px}.scan-readiness{max-width:600px;padding:15px}.scan-readiness-row{font-size:15px}.scan-readiness small{font-size:11px}}
+@media(max-height:620px){.onboarding{inset:2px 6% 78px!important}.onboarding .launch-plan{display:none}.onboard-steps{gap:3px}.onboard-steps>div{padding:5px 8px}.launch-actions{bottom:8px}}
+@media(orientation:landscape) and (max-height:550px){.onboarding{inset:0 27% 60px 4%!important}.onboarding .launch-plan{display:none}.onboard-steps{gap:2px}.onboard-steps>div{padding:4px 6px}.ar-list-row .ar-list-select{font-size:12px}}
+
+/* Small in-AR screenshot library and aspect crop editor */
+.camera-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 0}
+.camera-actions button,.camera-actions label{flex:1;min-width:130px;display:grid;place-items:center;padding:10px 12px;border:1px solid #c7b6a2;border-radius:11px;background:#ded8ca;color:#445247;font-size:12px;min-height:45px;cursor:pointer;text-align:center}
+.inline-gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;max-height:170px;overflow:auto;margin:7px 0}
+.inline-gallery .inline-photo{padding:2px;background:#ddd0c1;border:1px solid #cab9a8;border-radius:7px}
+.inline-gallery img{width:100%;height:75px;object-fit:cover;border-radius:5px;display:block}
+.photo-edit-preview{height:min(25svh,205px);background:#e4d8ce;border-radius:13px;display:grid;place-items:center;overflow:hidden;margin:10px 0}
+.photo-edit-preview img{max-width:100%;height:100%;max-height:100%;display:block;object-fit:contain}
+.ratio-pills{display:flex;justify-content:center;gap:6px;flex-wrap:wrap}
+.ratio-pills button{font-size:12px;border:1px solid #c9bba7;padding:7px 9px;border-radius:8px;background:#e8dfd2}
+.ratio-pills button.selected{background:#4f705f;color:#fff}
+@media(min-width:600px){.camera-actions button,.camera-actions label{font-size:14px;min-height:52px}.inline-gallery img{height:110px}.ratio-pills button{font-size:14px}}
