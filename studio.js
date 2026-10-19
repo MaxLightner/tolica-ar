@@ -316,7 +316,9 @@ void main(){
    return;
   }
   if(!this.model.locked||(this.session&&!this.tracking)||this.points.size>=2||(this.points.size===1&&['A','B'].includes(this.gesture?.kind)))return;e.preventDefault();target.setPointerCapture(e.pointerId);this.points.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});
-  if(this.points.size===1){const p=this.pointOnFloor(e,target);if(!p){this.cancelGesture();return;}const handle=this.hitHandle(e,target);if(handle){this.gesture={kind:handle,offset:this.model[handle.toLowerCase()].clone().sub(this.floorLocal(p))};return;}
+  if(this.points.size===1){const p=this.pointOnFloor(e,target);if(!p){this.cancelGesture();return;}
+   if(this.moveLayoutMode){this.gesture={kind:'layout',offset:this.model.layoutOffset.clone().sub(this.floorLocal(p))};return;}
+   const handle=this.hitHandle(e,target);if(handle){this.gesture={kind:handle,offset:this.model[handle.toLowerCase()].clone().sub(this.floorLocal(p))};return;}
    this.setRay(e,target);const hit=furnitureHit(this.ray,this.items.filter(x=>x.visible));if(!hit){this.select(null);this.gesture=null;return;}
    this.select(hit.object);
    if(isLamp(hit.object.userData.index)){
@@ -331,11 +333,14 @@ void main(){
  drag(e,target){if(!this.points.has(e.pointerId)||this.photoMode||(this.session&&!this.tracking))return;e.preventDefault();this.points.set(e.pointerId,{clientX:e.clientX,clientY:e.clientY});const g=this.gesture;if(!g)return;
   if(this.points.size===2&&this.selected){if(g.kind!=='twist'){this.startTwist(target);return;}const angle=this.twistAngle(target);if(angle!==null)this.selected.rotation.y=g.rotation+wrappedAngle(angle-g.start);this.keepOnFloor(this.selected);this.refreshAttachments();return;}
   if(this.points.size!==1||g.kind==='twist')return;const p=this.pointOnFloor(e,target);if(!p)return;
+  if(g.kind==='layout'){
+   this.model.layoutOffset.copy(this.floorLocal(p).add(g.offset));this.syncSpatial();return;
+  }
   if(g.kind==='object'&&this.selected){const local=this.rootLocal(p).add(g.offset);this.selected.position.x=local.x;this.selected.position.z=local.z;if(this.selected.userData.index===4){this.snapVase(this.selected);}else{this.keepOnFloor(this.selected);if(this.selected.userData.attachment){const link=this.selected.userData.attachment,base=this.items.find(m=>m.userData.id===link.id);if(base){const offset=this.selected.position.clone().sub(base.position).applyAxisAngle(new THREE.Vector3(0,1,0),-base.rotation.y);link.offset[0]=offset.x;link.offset[2]=offset.z;}}this.refreshAttachments();}}
   else if(g.kind==='A'){this.model.moveA(this.floorLocal(p).add(g.offset));this.syncSpatial();}
   else if(g.kind==='B'){this.model.moveB(this.floorLocal(p).add(g.offset));this.syncSpatial();}
  }
- up(e,target){this.points.delete(e.pointerId);if(this.points.size===1&&this.selected){const remaining=[...this.points.values()][0],p=this.pointOnFloor(remaining,target);this.gesture=p?{kind:'object',offset:this.selected.position.clone().sub(this.rootLocal(p))}:null;}else if(!this.points.size){this.gesture=null;this.changed();}}
+ up(e,target){this.points.delete(e.pointerId);if(this.points.size===1&&this.selected&&!this.moveLayoutMode){const remaining=[...this.points.values()][0],p=this.pointOnFloor(remaining,target);this.gesture=p?{kind:'object',offset:this.selected.position.clone().sub(this.rootLocal(p))}:null;}else if(!this.points.size){this.gesture=null;this.changed();}}
  cancelGesture(){this.points.clear();this.gesture=null;}
  setGuides(){const show=!this.photoMode;if(this.placementMarker)this.placementMarker.visible=show&&this.model.locked&&this.placementEnabled;if(this.measureTool)this.measureTool.group.visible=show&&this.model.locked&&this.measureTool.active;this.floorNet.visible=show&&(this.model.locked||this.scanner.ready);this.ruler.visible=show&&this.model.locked;for(const m of this.items){m.userData.edges.visible=show&&m===this.selected;m.userData.label.visible=show;if(m.userData.selectionHalo)m.userData.selectionHalo.visible=show&&m===this.selected;}}
  setPhotoMode(enabled){this.cancelGesture();this.photoMode=enabled;this.setGuides();this.changed();}
