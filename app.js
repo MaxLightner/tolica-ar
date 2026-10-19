@@ -161,6 +161,8 @@ async function render(){const version=++routeVersion;const route=location.hash.s
   studio.onSelectionScreen=position=>{
    const quick=$('#objectQuick');if(!quick)return;
    const selected=studio?.selected;
+   $('#quickPower').hidden=!selected||!isLamp(selected.userData.index);
+   if(selected&&isLamp(selected.userData.index))$('#quickPower').setAttribute('aria-pressed',String(!!selected.userData.lampOn));
    if(!position||!selected||!studio?.session||studio.photoMode||!$('#arToolSheet').hidden||studio.placementEnabled){
     quick.hidden=true;quickSmoothed=null;quickLastSelected=null;return;
    }
@@ -209,22 +211,27 @@ function showArSheet(mode){
  const selected=studio.selected;
  if(mode==='add'||mode==='replace'){
   const replacing=mode==='replace';
-  title.textContent=replacing?'جایگزینی آبجکت انتخابی':'افزودن در نشانگر + روی کف';
+  title.textContent=replacing?'تعویض مدل با حفظ جایگاه':'انتخاب مدل برای نشانگر +';
   if(!replacing)studio.setPlacementEnabled(true);
-  const indices=replacing&&selected?
-    ([0,1,3].includes(selected.userData.index)?[0,1,3]:
-     [2,9,10].includes(selected.userData.index)?[2,9,10]:
-     [7,6,4,5,8,11].includes(selected.userData.index)?[selected.userData.index]:[selected.userData.index]):
-    catalogImages.map((_,i)=>i);
-  body.innerHTML=`<div class="ar-object-grid">${indices.map(i=>`<button data-add-object="${i}" class="catalog-tile">${objectIcon(i)}<span>${catalogImages[i][0]}</span></button>`).join('')}</div>
-   <small class="sheet-tip">${replacing?'آبجکت جدید جای قبلی می‌نشیند و رنگ و جهت آن حفظ می‌شود.':'نشانگر + روی کف، جای ظهور آبجکت است؛ دوربین را آرام جابه‌جا کن تا روی جای دلخواه قرار بگیرد، سپس مدل را انتخاب کن.'}</small>`;
-  body.querySelectorAll('[data-add-object]').forEach(btn=>btn.onclick=()=>{
-   if(studio.items.length>=24&&!replacing){toast('برای سرعت AR، فعلاً حداکثر ۲۴ آبجکت مجاز است.');return;}
-   const i=Number(btn.dataset.addObject);
-   const mesh=replacing?studio.replaceSelected(i):studio.addAtMarker(i);
-   if(!mesh){toast('آبجکت اضافه نشد.');return;}
-   closeArSheet();toast('«'+catalogImages[i][0]+'» روی محل نشانگر قرار گرفت.');
-  });
+  const groups=replacing&&selected?
+   ASSET_CATEGORIES.map(c=>({...c,indexes:variantsFor(selected.userData.index).filter(i=>c.indexes.includes(i))})).filter(c=>c.indexes.length):
+   ASSET_CATEGORIES.map(c=>({...c,indexes:c.indexes.filter(i=>i!==5)}));
+  body.innerHTML=`<div class="ar-category-tabs">${groups.map((c,i)=>`<button data-category="${c.id}" class="${i===0?'selected':''}">${c.label}</button>`).join('')}</div>
+   <div class="ar-object-grid" id="categoryObjects"></div>
+   <small class="sheet-tip">${replacing?'جایگاه و رنگ مدل تا حد ممکن حفظ می‌شود.':'نشانگر + روی کف، محل مدل جدید را نشان می‌دهد؛ قبل از انتخاب مدل دوربین را به جای دلخواه بگیر.'}</small>
+   ${groups.some(c=>c.id==='wall-art')?'<small class="sheet-tip">تابلوها فعلاً روی یک صفحه عمودی مجازی در موقعیت تقریبی قرار می‌گیرند؛ تشخیص خودکار دیوار واقعی نیاز به WebXR Plane Detection دارد.</small>':''}`;
+  function populate(category){
+   const group=groups.find(c=>c.id===category)||groups[0];if(!group)return;
+   const holder=body.querySelector('#categoryObjects');holder.innerHTML=group.indexes.map(i=>`<button data-add-object="${i}" class="catalog-tile">${objectIcon(i)}<span>${catalogImages[i]?.[0]||'مدل'}</span></button>`).join('');
+   body.querySelectorAll('[data-category]').forEach(btn=>btn.classList.toggle('selected',btn.dataset.category===group.id));
+   holder.querySelectorAll('[data-add-object]').forEach(btn=>btn.onclick=()=>{
+    if(studio.items.length>=24&&!replacing){toast('به محدودیت ۲۴ آبجکت رسیدی.');return;}
+    const i=Number(btn.dataset.addObject),mesh=replacing?studio.replaceSelected(i):studio.addAtMarker(i);
+    if(!mesh)return;closeArSheet();toast('«'+(catalogImages[i]?.[0]||'مدل')+'» انتخاب شد.');
+   });
+  }
+  body.querySelectorAll('[data-category]').forEach(btn=>btn.onclick=()=>populate(btn.dataset.category));
+  populate(groups[0]?.id);
  }else if(mode==='colors'){
   if(selected?.userData.index===7){
    title.textContent='طرح و رنگ فرش';
@@ -252,19 +259,33 @@ function showArSheet(mode){
   body.querySelectorAll('[data-show-id]').forEach(btn=>btn.onclick=()=>{const id=Number(btn.dataset.showId),mesh=studio.items.find(m=>m.userData.id===id);studio.setItemVisible(id,!mesh.visible);refresh();});
   body.querySelectorAll('[data-delete-id]').forEach(btn=>btn.onclick=()=>{const item=studio.items.find(m=>m.userData.id===Number(btn.dataset.deleteId));if(item){studio.select(item);studio.remove();}refresh();});
  }else if(mode==='features'){
-  if(!selected){title.textContent='ابتدا یک آبجکت انتخاب کن';return;}
-  const index=selected.userData.index;title.textContent='ویژگی‌های '+selected.userData.product.name;
-  if(index===6){
-   body.innerHTML=`<button class="feature-action" id="lampSwitch">${selected.userData.lampOn===false?'روشن کردن نور آباژور':'خاموش کردن نور آباژور'}</button><small class="sheet-tip">نور روی مدل‌های مجازی اطراف اثر می‌گذارد؛ نورپردازی فرش یا دیوار واقعی نیازمند بازسازی محیط است.</small>`;
-   $('#lampSwitch').onclick=()=>{studio.setLampOn(selected.userData.lampOn===false);closeArSheet();showArSheet('features');};
-  }else if(index===10){
-   body.innerHTML='<p class="feature-caption">ظرفیت میز و تعداد صندلی‌ها</p><div class="feature-options">'+[2,4,6,8].map(n=>`<button data-seats="${n}" class="${(selected.userData.capacity||4)===n?'selected':''}">${fa(n)} نفر</button>`).join('')+'</div>';
-   body.querySelectorAll('[data-seats]').forEach(btn=>btn.onclick=()=>{studio.setDiningCapacity(Number(btn.dataset.seats));closeArSheet();showArSheet('features');});
-  }else if([0,1,3].includes(index)){
-   body.innerHTML='<p class="feature-caption">تبدیل مدل مبل با حفظ موقعیت</p><div class="feature-options">'+[1,2,3].map(n=>`<button data-sofa-seats="${n}" class="${selected.userData.seats===n?'selected':''}">${fa(n)} نفره</button>`).join('')+'</div>';
-   body.querySelectorAll('[data-sofa-seats]').forEach(btn=>btn.onclick=()=>{studio.setSofaSeats(Number(btn.dataset.sofaSeats));closeArSheet();showArSheet('features');});
-  }else if(index===7){closeArSheet();showArSheet('colors');return;}
-  else body.innerHTML='<p class="sheet-tip">برای این آبجکت می‌توانی رنگ، جایگاه و مدل را تغییر بدهی. قابلیت‌های بیشتر بعداً اضافه می‌شوند.</p>';
+  if(!selected){title.textContent='ابتدا یک مدل انتخاب کن';return;}
+  const i=selected.userData.index;
+  title.textContent='تغییر مدل و ویژگی‌های '+selected.userData.product.name;
+  if(isSofa(i)){
+   body.innerHTML=`<p class="feature-caption">تعداد نشیمن</p><div class="feature-options">${[1,2,3].map(n=>`<button data-sofa-seats="${n}" class="${selected.userData.seats===n?'selected':''}">${fa(n)} نفره</button>`).join('')}</div>
+   <p class="feature-caption">کوسن روی مبل</p><div class="feature-options">${CUSHION_PRESETS.map(p=>`<button data-cushion="${p.id}" class="${selected.userData.cushionPreset===p.id?'selected':''}">${p.name}</button>`).join('')}</div>`;
+   body.querySelectorAll('[data-sofa-seats]').forEach(btn=>btn.onclick=()=>{studio.setSofaSeats(+btn.dataset.sofaSeats);closeArSheet();showArSheet('features');});
+   body.querySelectorAll('[data-cushion]').forEach(btn=>btn.onclick=()=>{studio.setSofaCushions(btn.dataset.cushion);closeArSheet();showArSheet('features');});
+  }else if(i===10){
+   body.innerHTML=`<p class="feature-caption">تعداد نفرات و صندلی‌های همراه</p><div class="feature-options">${[2,4,6,8].map(n=>`<button data-seats="${n}" class="${selected.userData.capacity===n?'selected':''}">${fa(n)} نفره</button>`).join('')}</div>`;
+   body.querySelectorAll('[data-seats]').forEach(btn=>btn.onclick=()=>{studio.setDiningCapacity(+btn.dataset.seats);closeArSheet();showArSheet('features');});
+  }else if(isLamp(i)){
+   body.innerHTML=`<p class="feature-caption">نوع آباژور</p><div class="feature-options">${[6,14,15].map(id=>`<button data-lamp="${id}" class="${i===id?'selected':''}">${catalogImages[id][0]}</button>`).join('')}</div>`;
+   body.querySelectorAll('[data-lamp]').forEach(btn=>btn.onclick=()=>{studio.replaceSelected(+btn.dataset.lamp);closeArSheet();showArSheet('features');});
+  }else if(i===7){closeArSheet();showArSheet('colors');return;}
+  else if(isTable(i)||isWallArt(i)){
+   const variants=variantsFor(i);body.innerHTML=`<p class="feature-caption">اندازه و شکل مدل</p><div class="feature-options">${variants.map(id=>`<button data-variant="${id}" class="${i===id?'selected':''}">${catalogImages[id]?.[0]||'مدل'}</button>`).join('')}</div>`;
+   body.querySelectorAll('[data-variant]').forEach(btn=>btn.onclick=()=>{studio.replaceSelected(+btn.dataset.variant);closeArSheet();showArSheet('features');});
+  }else body.innerHTML='<p class="sheet-tip">رنگ، چرخش، جابه‌جایی و تعویض مدل در دسترس است.</p>';
+ }else if(mode==='save'){
+  title.textContent='ذخیره چیدمان من';
+  body.innerHTML='<p class="sheet-tip">این چیدمان همراه تمام آبجکت‌ها ذخیره می‌شود و پلان نمای بالای آن در «چیدمان‌های ذخیره‌شده» نمایش داده خواهد شد.</p><div class="custom-save-row"><input id="saveArrangementName" maxlength="70" placeholder="مثلاً پذیرایی مشتری شماره ۱"><button id="saveArrangementConfirm">ذخیره چیدمان</button></div>';
+  $('#saveArrangementConfirm').onclick=()=>{try{
+   const label=$('#saveArrangementName').value||'چیدمان '+space;
+   const saved=saveCustomLayout({...currentSceneRecord(),name:label});
+   toast('«'+saved.name+'» ذخیره شد.');closeArSheet();
+  }catch{toast('ذخیره چیدمان انجام نشد؛ حافظه مرورگر را بررسی کن.');}};
  }else if(mode==='settings'){
   title.textContent='تنظیمات AR و جهت چیدمان';
   const details=$('#arSettings');details.hidden=false;details.open=true;body.append(details);
@@ -280,8 +301,11 @@ $('#quickCopy').onclick=()=>{if(studio?.items.length>=24){toast('حد آبجکت
 $('#quickChange').onclick=()=>showArSheet('replace');
 $('#quickProps').onclick=()=>showArSheet('features');
 $('#quickRotate').onclick=()=>studio?.rotate();
+$('#quickPower').onclick=()=>{if(!studio?.selected||!isLamp(studio.selected.userData.index))return;studio.setLampOn(!studio.selected.userData.lampOn);$('#quickPower').setAttribute('aria-pressed',String(studio.selected.userData.lampOn));};
 $('#quickDelete').onclick=()=>{studio?.remove();};
 $('#arListTool').onclick=()=>showArSheet('objects');
+$('#arSaveTool').onclick=()=>showArSheet('save');
+
 $('#arSettingsTool').onclick=()=>showArSheet('settings');
 $('#arPhotoTool').onclick=()=>setPhotoMode(true);
 $('#arRulerTool').onclick=()=>{
