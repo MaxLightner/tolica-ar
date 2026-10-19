@@ -290,7 +290,14 @@ function showArSheet(mode){
   title.textContent='تنظیمات AR و جهت چیدمان';
   const details=$('#arSettings');details.hidden=false;details.open=true;body.append(details);
   const status=document.createElement('p');status.className='xr-status';status.textContent='عمق: '+(arReport?.depth||'نامشخص')+' · نور: '+(arReport?.light||'نامشخص');body.append(status);
-  const note=document.createElement('small');note.className='sheet-tip';note.textContent='تنظیمات عمق و نور بعد از شروع دوباره AR اعمال می‌شوند؛ A—B مستقل از خط‌کش مجازی است.';body.append(note);
+  const directions=document.createElement('div');directions.className='feature-options';
+  directions.innerHTML='<button id="layoutTurnLeft">↺ چرخش کل ست ۱۵°</button><button id="layoutTurnRight">چرخش کل ست ۱۵° ↻</button>';
+  body.append(directions);
+  $('#layoutTurnLeft').onclick=()=>studio.rotateLayout(-15);
+  $('#layoutTurnRight').onclick=()=>studio.rotateLayout(15);
+  const note=document.createElement('small');note.className='sheet-tip';
+  note.textContent='A—B فقط مرجع سنجش و کالیبراسیون است. برای جابه‌جایی کل ست دکمه مستقل «جابه‌جایی» را فعال کن؛ جهت کل ست را با دکمه‌های بالا تنظیم کن.';
+  body.append(note);
  }
  $('#arToolSheet').hidden=false;
 }
