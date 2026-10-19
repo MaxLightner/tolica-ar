@@ -1,5 +1,12 @@
 import {CATALOG} from './spatial.js';
 const categoryByIndex=index=>[0,1,3].includes(index)?'seating':[2,12,13].includes(index)?'low-tables':[10,11].includes(index)?'dining':index===9?'workspace':index===8?'bedroom':index>=16?'wall-art':'decor';
+export const RUG_SIZE_PRESETS=Object.freeze([
+ {id:'170x240',label:'۱.۷ × ۲.۴ متر',size:[2.4,.015,1.7]},
+ {id:'150x200',label:'۱.۵ × ۲ متر',size:[2,.015,1.5]},
+ {id:'200x300',label:'۲ × ۳ متر',size:[3,.015,2]},
+ {id:'250x350',label:'۲.۵ × ۳.۵ متر',size:[3.5,.015,2.5]},
+ {id:'300x400',label:'۳ × ۴ متر',size:[4,.015,3]}
+]);
 export const ASSET_CATEGORIES=Object.freeze([
  {id:'seating',label:'مبل و نشیمن',indexes:[1,0,3]},
  {id:'low-tables',label:'میز جلو مبلی و عسلی',indexes:[2,12,13]},
