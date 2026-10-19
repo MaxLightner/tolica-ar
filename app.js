@@ -203,6 +203,32 @@ function showArSheet(mode){
    body.querySelectorAll('[data-sofa-seats]').forEach(btn=>btn.onclick=()=>{studio.setSofaSeats(Number(btn.dataset.sofaSeats));closeArSheet();showArSheet('features');});
   }else if(index===7){closeArSheet();showArSheet('colors');return;}
   else body.innerHTML='<p class="sheet-tip">برای این آبجکت می‌توانی رنگ، جایگاه و مدل را تغییر بدهی. قابلیت‌های بیشتر بعداً اضافه می‌شوند.</p>';
+ }else if(mode==='camera'){
+  title.textContent='دوربین و گالری تولیکا';
+  body.innerHTML=`<div class="camera-actions">
+   <button id="photoCleanMode">◎ ثبت عکس از صفحه دستگاه</button>
+   <label>＋ افزودن اسکرین‌شات به گالری<input id="arUploadPhoto" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
+  </div><div id="inlineGallery" class="inline-gallery"><small>در حال بارگذاری عکس‌ها…</small></div>
+  <small class="sheet-tip">مرورگر فعلاً تصویر واقعی دوربین WebXR را همراه مبلمان به‌صورت فایل مستقیم ارائه نمی‌دهد. در حالت عکاسی با دکمه اسکرین‌شات گوشی عکس بگیر و آن را به گالری اضافه کن.</small>`;
+  $('#photoCleanMode').onclick=()=>{closeArSheet();setPhotoMode(true);};
+  $('#arUploadPhoto').onchange=async e=>{
+   const file=e.target.files?.[0];if(!file)return;
+   if(file.size>15*1024*1024){toast('عکس باید کمتر از ۱۵ مگابایت باشد.');return;}
+   try{await savePhoto(file,'اسکرین‌شات تولیکا');closeArSheet();showArSheet('camera');}
+   catch(error){toast('ذخیره عکس ممکن نشد.');}
+  };
+  photos().then(list=>{
+   if(arSheetMode!=='camera'||!$('#inlineGallery'))return;
+   const gallery=$('#inlineGallery');gallery.innerHTML='';
+   const latest=list.sort((a,b)=>b.date-a.date).slice(0,12);
+   if(!latest.length){gallery.textContent='هنوز عکسی ذخیره نشده است.';return;}
+   for(const photo of latest){
+    const url=URL.createObjectURL(photo.blob);photoURLs.push(url);
+    const btn=document.createElement('button');btn.className='inline-photo';
+    const img=document.createElement('img');img.src=url;img.alt='تصویر ذخیره‌شده';btn.append(img);
+    btn.onclick=()=>openArPhotoEditor(photo.blob);gallery.append(btn);
+   }
+  }).catch(()=>{$('#inlineGallery').textContent='گالری در دسترس نیست.';});
  }else if(mode==='settings'){
   title.textContent='تنظیمات AR و جهت چیدمان';
   const details=$('#arSettings');details.hidden=false;details.open=true;body.append(details);
@@ -210,6 +236,50 @@ function showArSheet(mode){
   const note=document.createElement('small');note.className='sheet-tip';note.textContent='تنظیمات عمق و نور بعد از شروع دوباره AR اعمال می‌شوند؛ A—B مستقل از خط‌کش مجازی است.';body.append(note);
  }
  $('#arToolSheet').hidden=false;
+}
+async function openArPhotoEditor(blob){
+ if(!blob)return;
+ const el=$('#arSheetContent');$('#arSheetTitle').textContent='تنظیم قاب عکس';
+ const original=URL.createObjectURL(blob);photoURLs.push(original);
+ el.innerHTML=`<div class="photo-edit-preview"><img id="photoRatioPreview" src="${original}" alt="پیش‌نمایش عکس"></div>
+ <div class="ratio-pills">${[['9:16',9/16],['3:4',3/4],['1:1',1],['4:3',4/3],['16:9',16/9]].map(([n,r])=>`<button data-photo-ratio="${r}" class="${n==='4:3'?'selected':''}">${n}</button>`).join('')}</div>
+ <div class="camera-actions"><button id="saveRatioPhoto">ذخیره نسخه با قاب جدید</button><button id="shareToAI">اشتراک با برنامه AI ↗</button></div>
+ <small class="sheet-tip">تغییر نسبت تصویر، فقط کادر موجود را برش می‌دهد؛ نشان دادن بخش‌های خارج از عکس نیازمند Generative Expand است. برای ارسال، برنامه مقصد را از منوی اشتراک دستگاه انتخاب کن.</small>`;
+ let currentBlob=null,working=false;
+ const crop=async ratio=>{
+  working=true;$('#saveRatioPhoto').disabled=true;$('#shareToAI').disabled=true;
+  const bitmap=await createImageBitmap(blob);
+  const sw=Math.min(bitmap.width,bitmap.height*ratio),sh=Math.min(bitmap.height,bitmap.width/ratio);
+  const width=Math.round(Math.min(1600,sw)),height=Math.round(width/ratio);
+  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+  const context=canvas.getContext('2d');context.drawImage(bitmap,(bitmap.width-sw)/2,(bitmap.height-sh)/2,sw,sh,0,0,width,height);
+  bitmap.close();
+  currentBlob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.85));
+  $('#photoRatioPreview').style.aspectRatio=ratio;
+  $('#photoRatioPreview').style.objectFit='cover';
+  working=false;$('#saveRatioPhoto').disabled=false;$('#shareToAI').disabled=false;
+ };
+ el.querySelectorAll('[data-photo-ratio]').forEach(btn=>btn.onclick=()=>{
+  el.querySelectorAll('[data-photo-ratio]').forEach(b=>b.classList.toggle('selected',b===btn));
+  crop(Number(btn.dataset.photoRatio)).catch(()=>toast('تنظیم قاب انجام نشد.'));
+ });
+ await crop(4/3);
+ $('#saveRatioPhoto').onclick=async()=>{
+  if(working||!currentBlob)return;
+  try{await savePhoto(currentBlob,'عکس با نسبت تصویر اصلاح‌شده');toast('نسخه اصلاح‌شده در گالری ذخیره شد.');}
+  catch{toast('ذخیره عکس انجام نشد.');}
+ };
+ $('#shareToAI').onclick=()=>{
+  if(working||!currentBlob)return;
+  const file=new File([currentBlob],'tolica-composition.jpg',{type:'image/jpeg'});
+  if(navigator.canShare?.({files:[file]})&&navigator.share){
+   navigator.share({files:[file],title:'TOLICA · چیدمان'}).catch(()=>{});
+  }else{
+   const url=URL.createObjectURL(file),a=document.createElement('a');
+   a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
+   toast('عکس آماده شد؛ برای ارسال به هوش مصنوعی، آن را در برنامه مقصد بارگذاری کن.');
+  }
+ };
 }
 $('#arSheetClose').onclick=closeArSheet;
 $('#arAddTool').onclick=()=>showArSheet('add');
@@ -221,7 +291,7 @@ $('#quickRotate').onclick=()=>studio?.rotate();
 $('#quickDelete').onclick=()=>{studio?.remove();};
 $('#arListTool').onclick=()=>showArSheet('objects');
 $('#arSettingsTool').onclick=()=>showArSheet('settings');
-$('#arPhotoTool').onclick=()=>{closeArSheet();setPhotoMode(true);};
+$('#arPhotoTool').onclick=()=>showArSheet('camera');
 $('#arRulerTool').onclick=()=>{
  if(!studio||!studio.placed)return;
  closeArSheet();
