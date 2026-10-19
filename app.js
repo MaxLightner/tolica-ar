@@ -305,11 +305,20 @@ $('#quickPower').onclick=()=>{if(!studio?.selected||!isLamp(studio.selected.user
 $('#quickDelete').onclick=()=>{studio?.remove();};
 $('#arListTool').onclick=()=>showArSheet('objects');
 $('#arSaveTool').onclick=()=>showArSheet('save');
+$('#arMoveLayoutTool').onclick=()=>{
+ if(!studio||!studio.placed)return;
+ closeArSheet();
+ const active=studio.setMoveLayoutMode(!studio.moveLayoutMode);
+ $('#arMoveLayoutTool').setAttribute('aria-pressed',String(active));
+ if(active){$('#arRulerTool').setAttribute('aria-pressed','false');studio.setMeasureActive(false);$('#measureHint').hidden=true;}
+};
+
 
 $('#arSettingsTool').onclick=()=>showArSheet('settings');
 $('#arPhotoTool').onclick=()=>setPhotoMode(true);
 $('#arRulerTool').onclick=()=>{
  if(!studio||!studio.placed)return;
+ studio.setMoveLayoutMode(false);$('#arMoveLayoutTool').setAttribute('aria-pressed','false');
  closeArSheet();
  const active=studio.setMeasureActive(!studio.measureTool.active);
  $('#arRulerTool').setAttribute('aria-pressed',String(active));$('#measureHint').hidden=!active;
@@ -403,6 +412,7 @@ function cameraNotice(message){
 function setPhotoMode(enabled){
  if(!studio)return;
  cameraActive=!!enabled;
+ if($('#cameraFallback'))$('#cameraFallback').hidden=true;
  if(enabled){
   closeArSheet();
   $('#cameraGallery').hidden=true;
@@ -457,6 +467,13 @@ async function openCameraGallery(){
   }
  }catch{host.textContent='گالری تولیکا در این مرورگر در دسترس نیست.';}
 }
+$('#cameraImport').onchange=async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>15*1024*1024){cameraNotice('فرمت یا حجم عکس مناسب نیست.');return;}
+ try{await savePhoto(file,CAMERA_PHOTO_KIND);await updateCameraLast();$('#cameraFallback').hidden=true;cameraNotice('اسکرین‌شات در گالری خصوصی تولیکا ذخیره شد.');}
+ catch{cameraNotice('ذخیره اسکرین‌شات ممکن نشد.');}
+ finally{e.target.value='';}
+};
 $('#cameraShutter').onclick=async()=>{
  if(!studio?.session||!cameraActive||cameraBusy)return;
  cameraBusy=true;$('#cameraShutter').disabled=true;$('#cameraNotice').hidden=true;
@@ -476,15 +493,25 @@ $('#cameraShutter').onclick=async()=>{
   setTimeout(()=>$('#cameraShutter').classList.remove('flash'),240);
   cameraNotice('عکس در گالری اختصاصی تولیکا ذخیره شد.');
  }catch(error){
-  cameraNotice(error instanceof ScreenshotUnavailable?error.message:'ثبت عکس ممکن نشد. دسترسی به ضبط صفحه و فضای ذخیره‌سازی را بررسی کن.');
+  cameraNotice(error instanceof ScreenshotUnavailable?error.message:'ثبت مستقیم عکس ممکن نشد.');
+  $('#cameraFallback').hidden=false;
  }finally{
   $('#cameraMode').classList.remove('capturing');
   cameraBusy=false;$('#cameraShutter').disabled=false;
  }
 };
 $('#closeARError').onclick=()=>$('#arError').close();$('#basicAR').onclick=()=>startAR(true);$('#copyARError').onclick=async()=>{try{await navigator.clipboard.writeText(lastXRErrorReport);toast('گزارش کپی شد.');}catch{toast('از جزئیات خطا عکس بگیر.');}};
-$('#overlay').addEventListener('beforexrselect',event=>event.preventDefault());$('#homeAR').onclick=async()=>{try{if(studio?.session)await studio.session.end();}catch{}sceneMemory=null;location.hash='welcome';};$('#resetAR').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;$('#confirmFloor').hidden=false;$('#confirmFloor').disabled=true;$('#arEditControls').hidden=true;$('#arSettings').hidden=true;}catch(error){toast('اسکن دوباره اجرا نشد.');}};$('#leaveAR').onclick=async()=>{try{await studio?.session?.end();}catch{toast('دکمهٔ بازگشت گوشی را بزن.');}};$('#confirmFloor').onclick=()=>studio?.confirmFloor();$('#rescanFloor').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;}catch(error){toast('اسکن دوباره راه‌اندازی نشد؛ از AR خارج شو و دوباره وارد شو.');}};
-$('#rotateAR').onclick=()=>{if(studio?.selected)studio.rotate(studio.selected.rotation.y*180/Math.PI+15);};$('#deleteAR').onclick=()=>studio?.remove();$('#colorAR').onclick=()=>{if(studio?.selected){const current='#'+studio.selected.material.color.getHexString();studio.color(palette[(palette.indexOf(current)+1)%palette.length]);}};$('#addAR').onclick=()=>{if(studio.items.length>=16){toast('حد آزمون این نسخه ۱۶ قطعه است.');return;}studio.add(Number($('#arProduct').value));};$('#closePhoto').onclick=()=>$('#photoHelp').close();
+$('#overlay').addEventListener('beforexrselect',event=>event.preventDefault());$('#homeAR').onclick=async()=>{
+ if(!studio)return;
+ persistDraft();sceneMemory=studio.exportState();
+ const running=studio.session;
+ $('#homeAR').disabled=true;
+ try{if(running)await running.end();}catch(error){console.warn('XR end request',error);}
+ if(studio?.session===running&&running)studio.endSession();
+ $('#homeAR').disabled=false;
+ location.hash='welcome';
+};$('#resetAR').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;$('#confirmFloor').hidden=false;$('#confirmFloor').disabled=true;$('#arEditControls').hidden=true;$('#arSettings').hidden=true;}catch(error){toast('اسکن دوباره اجرا نشد.');}};$('#leaveAR').onclick=async()=>{try{await studio?.session?.end();}catch{toast('دکمهٔ بازگشت گوشی را بزن.');}};$('#confirmFloor').onclick=()=>studio?.confirmFloor();$('#rescanFloor').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;}catch(error){toast('اسکن دوباره راه‌اندازی نشد؛ از AR خارج شو و دوباره وارد شو.');}};
+$('#rotateAR').onclick=()=>{if(studio?.selected)studio.rotate();};$('#deleteAR').onclick=()=>studio?.remove();$('#colorAR').onclick=()=>{if(studio?.selected){const current='#'+studio.selected.material.color.getHexString();studio.color(palette[(palette.indexOf(current)+1)%palette.length]);}};$('#addAR').onclick=()=>{if(studio.items.length>=16){toast('حد آزمون این نسخه ۱۶ قطعه است.');return;}studio.add(Number($('#arProduct').value));};$('#closePhoto').onclick=()=>$('#photoHelp').close();
 async function updateCount(){try{$('#galleryCount').textContent=fa((await photos()).length);}catch{$('#galleryCount').textContent='—';}}
 async function showModes(){$('#modeSheet').showModal();await support();$('#modeSupport').textContent=supported?'AR در مرورگر شما در دسترس است؛ مجوز دوربین هنگام شروع پرسیده می‌شود.':'AR در این دستگاه در دسترس نیست؛ مدل ساده را امتحان کنید.';$('#chooseAR').disabled=!supported;}
 $('#closeMode').onclick=()=>$('#modeSheet').close();$('#chooseSimple').onclick=()=>{$('#modeSheet').close();location.hash='studio';};$('#chooseAR').onclick=()=>{$('#modeSheet').close();location.hash='studio';toast('برای ورود به دوربین، «شروع AR» را بزنید.');};
