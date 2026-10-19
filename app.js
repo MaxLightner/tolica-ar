@@ -4,7 +4,7 @@ import {captureARScreen,CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto,Screenshot
 import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.3.2';
 import {allowedCapacities,layoutOptions,buildLayout,layoutSummary,layoutPreviewSvg} from './layout-templates.js?v=0.3.2';
 import {readDraft,saveDraft,clearDraft,listCustomLayouts,saveCustomLayout,removeCustomLayout} from './layout-storage.js?v=0.3.2';
-import {ASSET_CATEGORIES,isLamp,isSofa,isTable,isWallArt,variantsFor,categoryForIndex} from './asset-metadata.js?v=0.3.2';
+import {ASSET_CATEGORIES,RUG_SIZE_PRESETS,isLamp,isSofa,isTable,isWallArt,variantsFor,categoryForIndex} from './asset-metadata.js?v=0.3.4';
 import {savedPlanSvg} from './saved-plan.js?v=0.3.2';
 import {CUSHION_PRESETS} from './sofa-cushions.js?v=0.3.2';
 const $=s=>document.querySelector(s),app=$('#app'),fa=n=>n.toLocaleString('fa-IR');
@@ -227,7 +227,8 @@ function showArSheet(mode){
    holder.querySelectorAll('[data-add-object]').forEach(btn=>btn.onclick=()=>{
     if(studio.items.length>=24&&!replacing){toast('به محدودیت ۲۴ آبجکت رسیدی.');return;}
     const i=Number(btn.dataset.addObject),mesh=replacing?studio.replaceSelected(i):studio.addAtMarker(i);
-    if(!mesh)return;closeArSheet();toast('«'+(catalogImages[i]?.[0]||'مدل')+'» انتخاب شد.');
+    if(!mesh){toast('فضای کافی برای این مدل نیست؛ ابتدا آبجکت‌ها را جابه‌جا کن.');return;}
+    closeArSheet();toast('«'+(catalogImages[i]?.[0]||'مدل')+'» انتخاب شد.');
    });
   }
   body.querySelectorAll('[data-category]').forEach(btn=>btn.onclick=()=>populate(btn.dataset.category));
@@ -265,18 +266,27 @@ function showArSheet(mode){
   if(isSofa(i)){
    body.innerHTML=`<p class="feature-caption">تعداد نشیمن</p><div class="feature-options">${[1,2,3].map(n=>`<button data-sofa-seats="${n}" class="${selected.userData.seats===n?'selected':''}">${fa(n)} نفره</button>`).join('')}</div>
    <p class="feature-caption">کوسن روی مبل</p><div class="feature-options">${CUSHION_PRESETS.map(p=>`<button data-cushion="${p.id}" class="${selected.userData.cushionPreset===p.id?'selected':''}">${p.name}</button>`).join('')}</div>`;
-   body.querySelectorAll('[data-sofa-seats]').forEach(btn=>btn.onclick=()=>{studio.setSofaSeats(+btn.dataset.sofaSeats);closeArSheet();showArSheet('features');});
+   body.querySelectorAll('[data-sofa-seats]').forEach(btn=>btn.onclick=()=>{if(!studio.setSofaSeats(+btn.dataset.sofaSeats)){toast('برای این ابعاد فضای کافی وجود ندارد.');return;}closeArSheet();showArSheet('features');});
    body.querySelectorAll('[data-cushion]').forEach(btn=>btn.onclick=()=>{studio.setSofaCushions(btn.dataset.cushion);closeArSheet();showArSheet('features');});
   }else if(i===10){
    body.innerHTML=`<p class="feature-caption">تعداد نفرات و صندلی‌های همراه</p><div class="feature-options">${[2,4,6,8].map(n=>`<button data-seats="${n}" class="${selected.userData.capacity===n?'selected':''}">${fa(n)} نفره</button>`).join('')}</div>`;
-   body.querySelectorAll('[data-seats]').forEach(btn=>btn.onclick=()=>{studio.setDiningCapacity(+btn.dataset.seats);closeArSheet();showArSheet('features');});
+   body.querySelectorAll('[data-seats]').forEach(btn=>btn.onclick=()=>{if(!studio.setDiningCapacity(+btn.dataset.seats)){toast('برای این ابعاد فضای کافی وجود ندارد.');return;}closeArSheet();showArSheet('features');});
   }else if(isLamp(i)){
    body.innerHTML=`<p class="feature-caption">نوع آباژور</p><div class="feature-options">${[6,14,15].map(id=>`<button data-lamp="${id}" class="${i===id?'selected':''}">${catalogImages[id][0]}</button>`).join('')}</div>`;
-   body.querySelectorAll('[data-lamp]').forEach(btn=>btn.onclick=()=>{studio.replaceSelected(+btn.dataset.lamp);closeArSheet();showArSheet('features');});
-  }else if(i===7){closeArSheet();showArSheet('colors');return;}
+   body.querySelectorAll('[data-lamp]').forEach(btn=>btn.onclick=()=>{if(!studio.replaceSelected(+btn.dataset.lamp)){toast('فضای کافی برای این مدل وجود ندارد.');return;}closeArSheet();showArSheet('features');});
+  }else if(i===7){
+   title.textContent='اندازه فرش';
+   const size=selected.userData.product.size;
+   body.innerHTML=`<p class="feature-caption">ابعاد فرش (متر)</p><div class="feature-options">${RUG_SIZE_PRESETS.map(p=>`<button data-rug-size="${p.id}" class="${Math.abs(size[0]-p.size[0])<.01&&Math.abs(size[2]-p.size[2])<.01?'selected':''}">${p.label}</button>`).join('')}</div><p class="sheet-tip">ابعاد با مقیاس واقعی اعمال می‌شوند؛ فرش می‌تواند زیر مبلمان قرار بگیرد.</p><button id="rugColorSwitch">انتخاب طرح و رنگ فرش ←</button>`;
+   body.querySelectorAll('[data-rug-size]').forEach(btn=>btn.onclick=()=>{
+    const preset=RUG_SIZE_PRESETS.find(p=>p.id===btn.dataset.rugSize);
+    if(preset&&studio.setRugSize(preset.size)){closeArSheet();showArSheet('features');}
+   });
+   $('#rugColorSwitch').onclick=()=>{closeArSheet();showArSheet('colors');};
+  }
   else if(isTable(i)||isWallArt(i)){
    const variants=variantsFor(i);body.innerHTML=`<p class="feature-caption">اندازه و شکل مدل</p><div class="feature-options">${variants.map(id=>`<button data-variant="${id}" class="${i===id?'selected':''}">${catalogImages[id]?.[0]||'مدل'}</button>`).join('')}</div>`;
-   body.querySelectorAll('[data-variant]').forEach(btn=>btn.onclick=()=>{studio.replaceSelected(+btn.dataset.variant);closeArSheet();showArSheet('features');});
+   body.querySelectorAll('[data-variant]').forEach(btn=>btn.onclick=()=>{if(!studio.replaceSelected(+btn.dataset.variant)){toast('فضای کافی برای این مدل وجود ندارد.');return;}closeArSheet();showArSheet('features');});
   }else body.innerHTML='<p class="sheet-tip">رنگ، چرخش، جابه‌جایی و تعویض مدل در دسترس است.</p>';
  }else if(mode==='save'){
   title.textContent='ذخیره چیدمان من';
@@ -304,7 +314,7 @@ function showArSheet(mode){
 $('#arSheetClose').onclick=closeArSheet;
 $('#arAddTool').onclick=()=>showArSheet('add');
 $('#arMaterialTool').onclick=()=>showArSheet('colors');
-$('#quickCopy').onclick=()=>{if(studio?.items.length>=24){toast('حد آبجکت‌ها ۲۴ است.');return;}const item=studio?.duplicateSelected();if(item)toast('نسخه دوم کنار آبجکت قبلی ساخته شد.');};
+$('#quickCopy').onclick=()=>{if(studio?.items.length>=24){toast('حد آبجکت‌ها ۲۴ است.');return;}const item=studio?.duplicateSelected();toast(item?'نسخه دوم کنار آبجکت قبلی ساخته شد.':'در اطراف آبجکت فضای کافی برای کپی وجود ندارد.');};
 $('#quickChange').onclick=()=>showArSheet('replace');
 $('#quickProps').onclick=()=>showArSheet('features');
 $('#quickRotate').onclick=()=>studio?.rotate();
