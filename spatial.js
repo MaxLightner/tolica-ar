@@ -43,5 +43,5 @@ export class SpatialState{
  resetCalibration(){this.correction=1;this.actualLength=null;}
  apply(floorFrame,layout){floorFrame.position.copy(this.origin);floorFrame.position.y+=this.heightOffset;floorFrame.rotation.set(0,this.anchorYaw,0);layout.position.copy(this.layoutOffset);layout.rotation.set(0,this.layoutYaw,0);layout.scale.setScalar(this.correction);floorFrame.updateMatrixWorld(true);}
  snapshot(){return {a:this.a.toArray(),b:this.b.toArray(),correction:this.correction,actualLength:this.actualLength,heightOffset:this.heightOffset,layoutOffset:this.layoutOffset.toArray(),layoutYaw:this.layoutYaw};}
- restore(state){if(!state)return;this.a.fromArray(state.a);this.b.fromArray(state.b);this.correction=state.correction;this.actualLength=state.actualLength;this.heightOffset=state.heightOffset;this.layoutOffset.fromArray(state.layoutOffset||[0,0,0]);this.layoutYaw=state.layoutYaw||0;}
+ restore(state){if(!state)return;this.a.fromArray(state.a);this.b.fromArray(state.b);this.correction=state.correction;this.actualLength=state.actualLength;this.heightOffset=state.heightOffset;this.layoutOffset.fromArray(state.layoutOffset||state.a||[0,0,0]);this.layoutYaw=state.layoutYaw??this.yaw;}
 }
