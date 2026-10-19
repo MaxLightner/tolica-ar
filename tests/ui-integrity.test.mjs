@@ -10,14 +10,14 @@ const read=name=>readFileSync(join(root,name),'utf8');
 
 test('unique DOM IDs: camera fallback has a single input and label',()=>{
  const html=read('index.html');
- const ids=[...html.matchAll(/\\bid\\s*=\\s*["']([^"']+)["']/g)].map(m=>m[1]);
+ const ids=[...html.matchAll(/\bid\s*=\s*["']([^"']+)["']/g)].map(m=>m[1]);
  const duplicates=[...new Set(ids.filter((id,i)=>ids.indexOf(id)!==i))];
  assert.deepEqual(duplicates,[]);
  for(const id of ['cameraFallback','cameraImport','cameraShutter','cameraGallery']){
   assert.equal(ids.filter(x=>x===id).length,1);
  }
- assert.match(html,/<label\\s+for=["']cameraImport["']/);
- assert.match(html,/<input\\s+id=["']cameraImport["']\\s+type=["']file["']/);
+ assert.match(html,/<label\s+for=["']cameraImport["']/);
+ assert.match(html,/<input\s+id=["']cameraImport["']\s+type=["']file["']/);
 });
 
 test('separate AR layout movement and A/B measurement controls',()=>{
