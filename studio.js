@@ -219,12 +219,24 @@ void main(){
   const oldChairs=this.items.filter(m=>m.userData.tableId===oldId);
   const center=table.position.clone(),angle=table.rotation.y;
   const width={2:1.05,4:1.35,6:1.85,8:2.35}[count];
-  const newer=this.replaceSelected(10,{size:[width,.75,.86]});if(!newer)return false;newer.userData.capacity=count;
-  for(const old of oldChairs){this.root.remove(old);this.items=this.items.filter(m=>m!==old);this.disposeObject(old);}
+  const chairs=[];
   for(let i=0;i<count/2;i++)for(const side of [-1,1]){
    const offset=new THREE.Vector3((i-(count/2-1)/2)*.55,0,side*.78).applyAxisAngle(new THREE.Vector3(0,1,0),angle);
-   const chair=this.add(11,new THREE.Vector3(center.x+offset.x,.45,center.z+offset.z));
-   chair.userData.tableId=newer.userData.id;chair.rotation.y=angle+(side===1?Math.PI:0);
+   chairs.push({x:center.x+offset.x,z:center.z+offset.z,angle:angle+(side===1?Math.PI:0)});
+  }
+  const fixed=this.collisionObstacles(table,oldChairs),tableShape=footprint([width,.75,.86],center.x,center.z,angle);
+  const chairShapes=chairs.map(c=>footprint(CATALOG[11].size,c.x,c.z,c.angle));
+  if(fixed.some(item=>footprintsOverlap(tableShape,item))||
+     chairShapes.some((shape,i)=>fixed.some(item=>footprintsOverlap(shape,item))||
+      footprintsOverlap(shape,tableShape)||
+      chairShapes.slice(0,i).some(prev=>footprintsOverlap(shape,prev)))){
+   this.onHint?.('برای میز و صندلی‌های این ظرفیت فضای کافی نیست.');return false;
+  }
+  const newer=this.replaceSelected(10,{size:[width,.75,.86]});if(!newer)return false;newer.userData.capacity=count;
+  for(const old of oldChairs){this.root.remove(old);this.items=this.items.filter(m=>m!==old);this.disposeObject(old);}
+  for(const spot of chairs){
+   const chair=this.add(11,new THREE.Vector3(spot.x,.45,spot.z));
+   chair.userData.tableId=newer.userData.id;chair.rotation.y=spot.angle;
   }
   this.select(newer);this.changed();return true;
  }
