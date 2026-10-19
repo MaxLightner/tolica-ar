@@ -76,3 +76,11 @@ export function applyRugStyle(mesh,id){
  mesh.material.color.set('#ffffff');mesh.material.roughness=1;mesh.material.needsUpdate=true;
  mesh.userData.rugStyle=style.id;
 }
+
+export function rugPreviewDataUrl(id){
+ const texture=makeRugTexture(id);
+ if(!texture)return '';
+ const url=texture.image.toDataURL('image/webp',.72);
+ texture.dispose();
+ return url;
+}
