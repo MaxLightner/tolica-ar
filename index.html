@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f2eb"><meta name="description" content="تولیکا؛ مبلمان را پیش از انتخاب، در خانهٔ خود ببینید."><title>تولیکا — خانه، به سلیقهٔ تو</title><link rel="stylesheet" href="style.css?v=0.4.2"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f2eb"><meta name="description" content="تولیکا؛ مبلمان را پیش از انتخاب، در خانهٔ خود ببینید."><title>تولیکا — خانه، به سلیقهٔ تو</title><link rel="stylesheet" href="style.css?v=0.4.3"></head>
 <body>
 
 <header><a class="brand" href="#welcome" aria-label="خانه تولیکا">TOLICA</a><nav><a href="#spaces">چیدمان</a><a href="#gallery">گالری من <span id="galleryCount">۰</span></a></nav><button class="quiet" id="fullscreen">تمام‌صفحه ⛶</button></header>
@@ -18,7 +18,7 @@
   <button id="quickPower" title="روشن و خاموش" aria-label="روشن یا خاموش کردن آباژور" hidden>⏻</button>
   <button id="quickRotate" title="چرخش" aria-label="چرخش آبجکت">↻</button>
   <button id="quickDelete" title="حذف" aria-label="حذف آبجکت">×</button>
- </div><section id="arDebugPanel" hidden><div class="debug-head"><strong>AR Diagnostics · v0.4.2</strong><button id="debugHide">×</button></div><pre id="debugReadout" dir="ltr">در انتظار اطلاعات WebXR…</pre><div class="debug-actions"><button id="debugSave">ذخیره JSON</button><button id="debugGithub">گزارش به GitHub</button></div><small>خطوط رنگی: صفحات شناسایی‌شده؛ نقطه‌های صورتی: Anchorها. در صورت نبود Plane Detection، وضعیت unavailable نشان داده می‌شود.</small></section><section id="cameraMode" class="camera-mode" hidden aria-label="دوربین تولیکا">
+ </div><section id="arDebugPanel" hidden><div class="debug-head"><strong>AR Diagnostics · v0.4.3</strong><button id="debugHide">×</button></div><pre id="debugReadout" dir="ltr">در انتظار اطلاعات WebXR…</pre><div class="debug-actions"><button id="debugSave">ذخیره JSON</button><button id="debugGithub">گزارش به GitHub</button></div><small>خطوط رنگی: صفحات شناسایی‌شده؛ نقطه‌های صورتی: Anchorها. در صورت نبود Plane Detection، وضعیت unavailable نشان داده می‌شود.</small></section><section id="cameraMode" class="camera-mode" hidden aria-label="دوربین تولیکا">
   <div class="camera-topbar">
     <button type="button" id="cameraClose" aria-label="بازگشت به چیدمان">×</button>
     <label class="camera-ratio-label" for="cameraRatio">نسبت تصویر
@@ -72,5 +72,5 @@
 <dialog id="photoHelp"><h2>یک قاب از خانه‌ات</h2><p>در مرورگرهای سازگار با WebXR Raw Camera Access، دکمه عکس فریم واقعی دوربین و مبلمان سه‌بعدی را درون تولیکا ترکیب می‌کند.</p><p>اگر دسترسی داخلی دوربین روی دستگاه فعال نباشد، قابلیت کپچر AR ارائه نمی‌شود؛ عکس ساختگی یا بدون پس‌زمینه واقعی ذخیره نخواهد شد.</p><button id="closePhoto" class="primary">متوجه شدم</button></dialog>
 <dialog id="modeSheet"><button id="closeMode" class="sheet-close" aria-label="بستن">×</button><h2>چطور می‌خواهید ادامه دهید؟</h2><button class="mode-option" id="chooseAR"><span>واقعیت افزوده (AR)<small>قرار دادن باکس‌ها در فضای واقعی خانه</small></span><span class="mode-icon">♧</span></button><button class="mode-option" id="chooseSimple"><span>مدل ساده<small>بدون دوربین، روی پیش‌زمینهٔ ساده</small></span><span class="mode-icon">◇</span></button><p id="modeSupport">در حال بررسی سازگاری…</p></dialog>
 <dialog id="arError"><button id="closeARError" class="sheet-close" aria-label="بستن خطای AR">×</button><h2>چرا AR شروع نشد؟</h2><p id="arErrorMessage"></p><ol><li>لینک را از منوی سه‌نقطه با «باز کردن در Chrome» در تب اصلی مرورگر باز کن.</li><li>Chrome و Google Play Services for AR را از فروشگاه رسمی به‌روز کن و مجوز دوربین سایت را بررسی کن.</li></ol><details open><summary>جزئیات خطا برای بررسی</summary><pre id="arErrorDetails" dir="ltr"></pre></details><button id="basicAR" class="primary">آزمون سادهٔ AR</button><p>این آزمون پنل کنترل را الزامی نمی‌کند. اگر پنل ظاهر نشد، دوربین را به سمت کف بگیر؛ در این آزمون بدون پنل، کف پایدار خودکار تثبیت می‌شود؛ برای خروج، دکمهٔ بازگشت گوشی را بزن.</p><button id="copyARError">کپی گزارش خطا</button></dialog>
-<script type="module" src="app.js?v=0.4.2"></script></body></html>
+<script type="module" src="app.js?v=0.4.3"></script></body></html>
 
