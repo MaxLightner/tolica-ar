@@ -29,10 +29,10 @@ export class MeasureTool{
  update(){
   this.group.visible=this.active;
   this.pointA.visible=!!this.a;this.pointB.visible=!!this.b;this.line.visible=!!this.b;
-  for(const child of [...this.ticks.children]){this.ticks.remove(child);child.geometry.dispose();}
+  for(const child of [...this.ticks.children]){this.ticks.remove(child);child.geometry.dispose();child.material.dispose();}
   if(!this.a){this.label.visible=false;return;}
   this.pointA.position.copy(this.a);this.pointA.position.y=.03;
-  if(!this.b){this.label.visible=true;this.label.position.copy(this.a).add(new THREE.Vector3(0,.21,0));this.label.userData.measure='ابتدا نقطه دوم را لمس کن';return;}
+  if(!this.b){this.label.visible=true;this.label.position.copy(this.a).add(new THREE.Vector3(0,.21,0));if(this.label.userData.measure!=='نقطه دوم را لمس کن'){this.label.userData.measure='نقطه دوم را لمس کن';this.label.userData.updateText?.('نقطه دوم را لمس کن');}return;}
   const start=this.a.clone(),end=this.b.clone();start.y=end.y=.035;
   this.pointB.position.copy(end);
   const delta=end.clone().sub(start),len=delta.length(),up=new THREE.Vector3(0,1,0);
@@ -59,6 +59,6 @@ export class MeasureTool{
  dispose(){
   for(const child of this.ticks.children){child.geometry.dispose();child.material.dispose();}
   this.line.geometry.dispose();this.pointA.geometry.dispose();this.pointB.geometry.dispose();
-  this.material.dispose();this.group.parent?.remove(this.group);
+  this.material.dispose();this.label.material.map?.dispose();this.label.material.dispose();this.group.parent?.remove(this.group);
  }
 }
