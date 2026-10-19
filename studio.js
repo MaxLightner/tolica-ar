@@ -290,7 +290,10 @@ void main(){
   const p=this.placementPoint?new THREE.Vector3(this.placementPoint.x,h/2,this.placementPoint.z):undefined;
   const previous=this.selected,item=this.add(index,p);
   if(!this.tryPlaceNew(item,previous,2.3))return null;
-  if(index===10){item.userData.capacity=4;this.setDiningCapacity(4);}
+  if(index===10){item.userData.capacity=4;if(!this.setDiningCapacity(4)){
+   this.select(item);this.remove();this.select(previous&&this.items.includes(previous)?previous:(this.items[0]||null));
+   return null;
+  }}
   if(index===4)this.snapVase(item);
   if(index===14)this.snapToSupport(item);
   return this.selected||item;
