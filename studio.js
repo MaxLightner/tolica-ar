@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
-import {createFurniture,furnitureHit} from './furniture.js?v=0.3.0';
-import {createDecor} from './decor.js?v=0.3.0';
-import {applyRugStyle} from './rug-textures.js?v=0.3.0';
+import {createFurniture,furnitureHit} from './furniture.js?v=0.3.1';
+import {createDecor} from './decor.js?v=0.3.1';
+import {applyRugStyle} from './rug-textures.js?v=0.3.1';
 import {MeasureTool} from './measure-tool.js?v=0.2.8';
 import {requestARSession,xrError} from './xr.js?v=0.2.4';
 import {SpatialState,CATALOG,pairAngle,wrappedAngle} from './spatial.js?v=0.2.4';
