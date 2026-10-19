@@ -1,9 +1,10 @@
 import {CATALOG} from './spatial.js';
-const categoryByIndex=index=>[0,1,3].includes(index)?'seating':[2,12,13].includes(index)?'low-tables':[9,10,11].includes(index)?'dining':index>=16?'wall-art':'decor';
+const categoryByIndex=index=>[0,1,3].includes(index)?'seating':[2,12,13].includes(index)?'low-tables':[9,10,11].includes(index)?'dining':index===9?'workspace':index>=16?'wall-art':'decor';
 export const ASSET_CATEGORIES=Object.freeze([
  {id:'seating',label:'مبل و نشیمن',indexes:[1,0,3]},
  {id:'low-tables',label:'میز جلو مبلی و عسلی',indexes:[2,12,13]},
  {id:'dining',label:'میز ناهارخوری و صندلی',indexes:[10,11]},
+ {id:'workspace',label:'میز کار و مطالعه',indexes:[9]},
  {id:'decor',label:'آباژور و دکور',indexes:[4,6,14,15,7,5]},
  {id:'wall-art',label:'تابلو و دیوارکوب',indexes:[16,17,18,19,20,21]}
 ]);
