@@ -86,7 +86,7 @@ async function render(){const version=++routeVersion;const route=location.hash.s
   studio.onEnd=()=>{setPhotoMode(false);closeArSheet();$('#arDock').hidden=true;$('#measureHint').hidden=true;};
   studio.onPhotoTap=revealPhotoExit;
   studio.debugView.onUpdate=()=>{if(debugEnabled)refreshDebugPanel();};
-  studio.setMeasureHandler(m=>$('#measureReadout').textContent=m===null?'نقطه اول را روی کف لمس کن':m===undefined?'نقطه دوم را لمس کن':m.toFixed(2)+' متر');
+  studio.setMeasureHandler((m,awaitSecond)=>$('#measureReadout').textContent=awaitSecond?'نقطه دوم را روی کف لمس کن':m===null?'نقطه اول را روی کف لمس کن':m.toFixed(2)+' متر');
  }catch(error){$('#viewport').textContent='محیط سه‌بعدی آماده نشد.';console.error(error);return;}
  bindCalibration('ar');
  $('#preview3D').onclick=()=>{previewEnabled=!previewEnabled;$('#viewport').classList.toggle('show-preview',previewEnabled);$('#preview3D').textContent=previewEnabled?'بستن پیش‌نمایش':'پیش‌نمایش سه‌بعدی';};
@@ -124,9 +124,9 @@ function showArSheet(mode){
  }else if(mode==='objects'){
   title.textContent='اشیای چیدمان · '+fa(studio.items.length);
   body.innerHTML=`<div class="ar-object-list">${studio.items.map(m=>`<button data-select-id="${m.userData.id}" class="${m===studio.selected?'selected':''}">${objectIcon(m.userData.index)}<span>${m.userData.product.name}</span><small>#${m.userData.id}</small></button>`).join('')}</div><div class="item-actions"><button id="selectedRotate">چرخش ۱۵°</button><button id="selectedDelete">حذف انتخاب‌شده</button></div><small class="sheet-tip">برای انتخاب از فهرست یا خود صحنه استفاده کن.</small>`;
-  body.querySelectorAll('[data-select-id]').forEach(btn=>btn.onclick=()=>{studio.select(studio.items.find(m=>m.userData.id===Number(btn.dataset.selectId)));showArSheet('objects');});
+  body.querySelectorAll('[data-select-id]').forEach(btn=>btn.onclick=()=>{studio.select(studio.items.find(m=>m.userData.id===Number(btn.dataset.selectId)));closeArSheet();showArSheet('objects');});
   $('#selectedRotate').onclick=()=>{studio.rotate();toast('آبجکت چرخید.');};
-  $('#selectedDelete').onclick=()=>{if(studio.selected)studio.remove();showArSheet('objects');};
+  $('#selectedDelete').onclick=()=>{if(studio.selected)studio.remove();closeArSheet();showArSheet('objects');};
  }else if(mode==='settings'){
   title.textContent='تنظیمات AR و جهت چیدمان';
   const details=$('#arSettings');details.hidden=false;details.open=true;body.append(details);
