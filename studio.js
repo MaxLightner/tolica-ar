@@ -109,7 +109,7 @@ void main(){
    const sofa=this.items.find(m=>m!==mesh&&(m.userData.index===0||m.userData.index===1));
    if(sofa)mesh.userData.attachment={id:sofa.userData.id,offset:[0,.56+h/2-sofa.userData.height/2,.20]};
   }
-  this.refreshAttachments();this.select(mesh);this.setGuides();return mesh;
+  this.refreshAttachments();if(!options.silentSelect)this.select(mesh);this.setGuides();return mesh;
  }
  addContactShadow(mesh,w,d,h,opacity){
   // Radial darkening decal, alpha blended against the real-world passthrough
@@ -132,7 +132,7 @@ void main(){
   for(const specification of recipe.items){
    const product=CATALOG[specification.index];
    const pos=new THREE.Vector3(specification.x,product.size[1]/2,specification.z);
-   const mesh=this.add(specification.index,pos,specification.options||{});
+   const mesh=this.add(specification.index,pos,{...specification.options,silentSelect:true});
    mesh.rotation.y=specification.rotation||0;
    mesh.userData.capacity=specification.options?.capacity||mesh.userData.capacity||null;
    made.push({mesh,specification});
