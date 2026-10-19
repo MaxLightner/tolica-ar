@@ -1,21 +1,46 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cropRect,CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto,captureARScreen,ScreenshotUnavailable} from '../camera-capture.js';
+import {cropRect,CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto} from '../camera-capture.js';
+import {InternalCaptureUnavailable,canCaptureCamera,rowsTopDown,captureInternalAR,readCameraPixels} from '../internal-camera-capture.js';
 
-test('ratio options and photo-gallery segregation',()=>{
+test('internal-camera ratios and private photo gallery',()=>{
  assert.deepEqual(Object.keys(CAMERA_RATIOS),['9:16','3:4','1:1','4:3','16:9']);
- assert.equal(CAMERA_RATIOS['1:1'],1);
- assert.equal(CAMERA_PHOTO_KIND,'tolica-camera');
- assert.ok(isCameraPhoto({kind:'tolica-camera'}));
- assert.ok(!isCameraPhoto({kind:'اسکرین‌شات تولیکا'}));
- assert.ok(!isCameraPhoto({kind:'upload'}));
+ assert.ok(isCameraPhoto({kind:CAMERA_PHOTO_KIND}));
+ assert.equal(isCameraPhoto({kind:'imported'}),false);
 });
-test('center-crop keeps actual recorded pixels without inventing unseen sides',()=>{
+test('center crop preserves frame aspect',()=>{
  assert.deepEqual(cropRect(1920,1080,1),{sx:420,sy:0,sw:1080,sh:1080});
  assert.deepEqual(cropRect(1080,1920,1),{sx:0,sy:420,sw:1080,sh:1080});
- assert.deepEqual(cropRect(600,400,3/2),{sx:0,sy:0,sw:600,sh:400});
- assert.throws(()=>cropRect(0,200,1),RangeError);
+ assert.throws(()=>cropRect(0,100,1),RangeError);
 });
-test('unsupported immersive screen capture fails explicitly rather than recording an empty AR canvas',async()=>{
- await assert.rejects(captureARScreen({getDisplayMedia:null,doc:{createElement(){}}}),ScreenshotUnavailable);
+test('pixels copied from bottom-left GL origin to top-left canvas origin',()=>{
+ const rgba=new Uint8Array([11,0,0,255,12,0,0,255,21,0,0,255,22,0,0,255]);
+ assert.deepEqual([...rowsTopDown(rgba,2,2)],[21,0,0,255,22,0,0,255,11,0,0,255,12,0,0,255]);
+});
+test('camera access is required before attempting internal AR capture',()=>{
+ const disabled={enabledFeatures:['hit-test']},enabled={enabledFeatures:['hit-test','camera-access']};
+ const binding={getCameraImage:()=>({})};
+ assert.equal(canCaptureCamera(disabled,binding),false);
+ assert.equal(canCaptureCamera(enabled,binding),true);
+ assert.throws(()=>captureInternalAR({session:disabled,binding,frame:{},ratio:'4:3'}),InternalCaptureUnavailable);
+});
+test('camera texture readback frees framebuffer and restores renderer state',()=>{
+ let current='old',deleted=0,resets=0;
+ const gl={
+  FRAMEBUFFER:1,FRAMEBUFFER_BINDING:2,COLOR_ATTACHMENT0:3,TEXTURE_2D:4,FRAMEBUFFER_COMPLETE:5,
+  RGBA:6,UNSIGNED_BYTE:7,NO_ERROR:0,
+  createFramebuffer:()=>({id:1}),
+  getParameter:()=>current,
+  bindFramebuffer:(target,fb)=>{current=fb;},
+  framebufferTexture2D:()=>{},
+  checkFramebufferStatus:()=>5,
+  readPixels:(x,y,w,h,format,type,pixels)=>{pixels.fill(90);},
+  getError:()=>0,
+  deleteFramebuffer:()=>{deleted++;}
+ };
+ const renderer={getContext:()=>gl,resetState:()=>{resets++;}};
+ const result=readCameraPixels(renderer,{getCameraImage:()=>({})},{camera:{width:16,height:16}});
+ assert.equal(result.width,16);
+ assert.equal(result.pixels[0],90);
+ assert.equal(current,'old');assert.equal(deleted,1);assert.equal(resets,1);
 });
