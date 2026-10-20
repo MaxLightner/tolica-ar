@@ -27,3 +27,10 @@ export function saveCustomLayout({name,scene,room,layout,capacity,style,theme},s
 export function removeCustomLayout(id,store=globalThis.localStorage){
  const items=listCustomLayouts(store).filter(x=>x.id!==id);store.setItem(SAVED,JSON.stringify(items));return items;
 }
+
+export function overwriteCustomLayout(id,record,store=globalThis.localStorage){
+ const items=listCustomLayouts(store),index=items.findIndex(x=>x.id===id);
+ if(index<0||!validScene(record.scene))throw Error('Saved layout not found');
+ const old=items[index];items[index]={...old,...record,id:old.id,name:String(record.name||old.name).trim().slice(0,70),createdAt:old.createdAt,updatedAt:Date.now()};
+ store.setItem(SAVED,JSON.stringify(items));return items[index];
+}

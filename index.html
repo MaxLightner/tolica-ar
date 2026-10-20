@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f2eb"><meta name="description" content="تولیکا؛ مبلمان را پیش از انتخاب، در خانهٔ خود ببینید."><title>تولیکا — خانه، به سلیقهٔ تو</title><link rel="stylesheet" href="style.css?v=0.4.3"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f2eb"><meta name="description" content="چیدو؛ مبلمان را پیش از انتخاب، در خانهٔ خود ببینید."><title>چیدو — خانه، به سلیقهٔ تو</title><link rel="stylesheet" href="style.css?v=0.5.0"></head>
 <body>
 
-<header><a class="brand" href="#welcome" aria-label="خانه تولیکا">TOLICA</a><nav><a href="#spaces">چیدمان</a><a href="#gallery">گالری من <span id="galleryCount">۰</span></a></nav><button class="quiet" id="fullscreen">تمام‌صفحه ⛶</button></header>
+<header><a class="brand" href="#welcome" aria-label="خانه چیدو">CHIDO</a><nav><a href="#spaces">چیدمان</a><a href="#gallery">گالری من <span id="galleryCount">۰</span></a></nav><button class="quiet" id="fullscreen">تمام‌صفحه ⛶</button></header>
 <main id="app"></main><div id="toast" role="status" aria-live="polite"></div>
-<div id="overlay" hidden><div id="arSurface" aria-label="سطح تعامل لمسی AR"></div><div class="ar-top"><div class="ar-nav-actions"><button id="homeAR">منوی تولیکا</button><button id="resetAR">اسکن مجدد ↻</button><button id="debugToggle" aria-pressed="false">دیباگ ◉</button><button id="leaveAR">خروج ×</button></div><span id="arStatus" role="status">در حال شناسایی کف…</span></div>
+<div id="overlay" hidden><div id="arSurface" aria-label="سطح تعامل لمسی AR"></div><div class="ar-top"><div class="ar-nav-actions"><button id="homeAR">منوی چیدو</button><button id="resetAR">اسکن مجدد ↻</button></div><span id="arStatus" role="status">در حال شناسایی کف…</span></div>
  <div id="scanReadiness" class="scan-readiness" hidden>
    <div class="scan-readiness-row"><strong id="scanStage">در حال آغاز دوربین…</strong><span id="scanPercent">۰٪</span></div>
    <progress id="scanProgress" value="0" max="100"></progress>
@@ -18,7 +18,7 @@
   <button id="quickPower" title="روشن و خاموش" aria-label="روشن یا خاموش کردن آباژور" hidden>⏻</button>
   <button id="quickRotate" title="چرخش" aria-label="چرخش آبجکت">↻</button>
   <button id="quickDelete" title="حذف" aria-label="حذف آبجکت">×</button>
- </div><section id="arDebugPanel" hidden><div class="debug-head"><strong>AR Diagnostics · v0.4.3</strong><button id="debugHide">×</button></div><pre id="debugReadout" dir="ltr">در انتظار اطلاعات WebXR…</pre><div class="debug-actions"><button id="debugSave">ذخیره JSON</button><button id="debugGithub">گزارش به GitHub</button></div><small>خطوط رنگی: صفحات شناسایی‌شده؛ نقطه‌های صورتی: Anchorها. در صورت نبود Plane Detection، وضعیت unavailable نشان داده می‌شود.</small></section><section id="cameraMode" class="camera-mode" hidden aria-label="دوربین تولیکا">
+ </div><section id="arDebugPanel" hidden><div class="debug-head"><strong>AR Diagnostics · v0.4.3</strong><button id="debugHide">×</button></div><pre id="debugReadout" dir="ltr">در انتظار اطلاعات WebXR…</pre><div class="debug-actions"><button id="debugSave">ذخیره JSON</button><button id="debugGithub">گزارش به GitHub</button></div><small>خطوط رنگی: صفحات شناسایی‌شده؛ نقطه‌های صورتی: Anchorها. در صورت نبود Plane Detection، وضعیت unavailable نشان داده می‌شود.</small></section><section id="cameraMode" class="camera-mode" hidden aria-label="دوربین چیدو">
   <div class="camera-topbar">
     <button type="button" id="cameraClose" aria-label="بازگشت به چیدمان">×</button>
     <label class="camera-ratio-label" for="cameraRatio">نسبت تصویر
@@ -33,8 +33,8 @@
   </div>
   <div class="camera-framing" id="cameraFraming" aria-hidden="true"></div>
   <div class="camera-bottom">
-    <button type="button" id="cameraLast" class="camera-last" aria-label="نمایش عکس‌های تولیکا">
-      <span id="cameraLastPlaceholder">▧</span><img id="cameraLastImage" alt="آخرین عکس گرفته‌شده با تولیکا" hidden>
+    <button type="button" id="cameraLast" class="camera-last" aria-label="نمایش عکس‌های چیدو">
+      <span id="cameraLastPlaceholder">▧</span><img id="cameraLastImage" alt="آخرین عکس گرفته‌شده با چیدو" hidden>
     </button>
     <button type="button" id="cameraShutter" class="camera-shutter" aria-label="گرفتن عکس"><span></span></button>
     <div class="camera-bottom-spacer" aria-hidden="true"></div>
@@ -45,10 +45,10 @@
    <label for="cameraImport">افزودن تصویر از دستگاه</label>
    <input id="cameraImport" type="file" accept="image/png,image/jpeg,image/webp" hidden>
   </div>
-  <section id="cameraGallery" class="camera-gallery" hidden aria-label="عکس‌های ثبت‌شده در تولیکا">
+  <section id="cameraGallery" class="camera-gallery" hidden aria-label="عکس‌های ثبت‌شده در چیدو">
     <div class="camera-gallery-header">
       <button id="cameraGalleryBack" type="button" aria-label="بازگشت به دوربین">←</button>
-      <strong>عکس‌های تولیکا</strong>
+      <strong>عکس‌های چیدو</strong>
       <span id="cameraGalleryCount"></span>
     </div>
     <div id="cameraGalleryItems" class="camera-gallery-items"></div>
@@ -58,7 +58,7 @@
   <button id="arAddTool" aria-label="افزودن مدل">＋ <span>افزودن</span></button>
   <button id="arMaterialTool" aria-label="رنگ و جنس پارچه">◩ <span>رنگ</span></button>
   <button id="arListTool" aria-label="فهرست اشیا">▤ <span>اشیا</span></button>
-  <button id="arSaveTool" aria-label="ذخیره چیدمان">▣ <span>ذخیره</span></button>
+  
   <button id="arRulerTool" aria-pressed="false" aria-label="نمایش خط‌کش مستقل">⌗ <span>خط‌کش</span></button>
   <button id="arMoveLayoutTool" aria-pressed="false" aria-label="جابجایی کل چیدمان">↔ <span>جابه‌جایی</span></button>
   <button id="arSettingsTool" aria-label="تنظیمات و خط جهت">⚙ <span>تنظیمات</span></button>
@@ -68,9 +68,15 @@
   <div class="ar-sheet-head"><strong id="arSheetTitle">ابزارها</strong><button id="arSheetClose" aria-label="بستن">×</button></div>
   <div id="arSheetContent"></div>
  </aside>
- <div id="arSettingsBin" hidden></div><div id="measureHint" hidden role="status"><span id="measureReadout">نقطه اول را روی کف لمس کن</span> <button id="measureClear">پاک کردن</button></div><div class="ar-bottom compact"><button id="confirmFloor" class="primary" disabled>تثبیت این کف</button><div id="arEditControls" hidden><div id="arSelection"></div><div class="tools"><div id="selectedARTools"><button id="rotateAR">↻ ۱۵°</button><button id="colorAR">رنگ</button><button id="deleteAR">حذف</button></div><select id="arProduct" aria-label="نوع قطعه AR"><option value="0">کاناپه ۲۱۰</option><option value="1">تک‌نفره ۹۰</option><option value="2">میز ۱۱۰</option></select><button id="addAR">افزودن +</button></div></div><details id="arSettings" hidden><summary>کف و خط‌کش A—B</summary><div class="calibration-controls"><p id="arMeasurement" class="measurement"></p><label for="aractual">طول واقعی A—B (۱۰۰ تا ۱۰۰۰ سانتی‌متر)</label><div class="input-row"><input id="aractual" type="number" inputmode="decimal" min="100" max="1000" step="0.1" placeholder="مثلاً ۱۰۰"><button id="arcalibrate">کالیبره کن</button><button id="arresetScale">۱:۱</button></div><small>خط A—B برای اندازه‌گیری و کالیبراسیون است؛ جابه‌جایی و چرخش کل چیدمان ابزار مستقل دارد.</small><label class="xr-option"><input id="lightEnabled" type="checkbox" checked> نور محیط (در صورت پشتیبانی)</label><label class="xr-option"><input id="depthEnabled" type="checkbox" checked> اکلوژن عمق واقعی (در صورت پشتیبانی)</label></div><button id="rescanFloor">انتخاب مجدد کف</button></details><small id="diagnostics" dir="ltr">tracking — · floor SCANNING</small></div></div>
-<dialog id="photoHelp"><h2>یک قاب از خانه‌ات</h2><p>در مرورگرهای سازگار با WebXR Raw Camera Access، دکمه عکس فریم واقعی دوربین و مبلمان سه‌بعدی را درون تولیکا ترکیب می‌کند.</p><p>اگر دسترسی داخلی دوربین روی دستگاه فعال نباشد، قابلیت کپچر AR ارائه نمی‌شود؛ عکس ساختگی یا بدون پس‌زمینه واقعی ذخیره نخواهد شد.</p><button id="closePhoto" class="primary">متوجه شدم</button></dialog>
+ <section id="arMiniMap" class="ar-minimap" hidden aria-label="پلان زنده دو بعدی چیدمان">
+    <div class="map-title"><strong>نقشه چیدمان</strong><button type="button" data-map-expand>بزرگ کردن</button></div>
+    <svg id="arMiniSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 250" role="img" aria-label="نمای بالا از تمام مبلمان و خط A B"></svg>
+    <div class="map-meta"><span data-map-measure>پلان در حال آماده‌سازی</span><div class="map-rotate"><button data-map-left type="button" aria-label="چرخش ۱۵ درجه به چپ">↺</button><button data-map-right type="button" aria-label="چرخش ۱۵ درجه به راست">↻</button></div></div>
+  </section>
+  <div id="abInline" class="ab-inline" hidden><button id="abLengthButton" type="button">A—B ✎</button><form id="abLengthForm" hidden><label for="abLengthInput">طول واقعی (سانتی‌متر)</label><input type="number" id="abLengthInput" inputmode="decimal" min="100" max="1000" step="0.1" required><button type="submit">ثبت</button></form></div>
+  <div id="arSettingsBin" hidden></div><div id="measureHint" hidden role="status"><span id="measureReadout">نقطه اول را روی کف لمس کن</span> <button id="measureClear">پاک کردن</button></div><div class="ar-bottom compact"><div id="arBottomActions" class="ar-bottom-actions" hidden><button id="arBottomSave">▣ ذخیره</button><button id="arBottomOpen">▤ چیدمان‌های من</button></div><button id="confirmFloor" class="primary" disabled>تثبیت این کف</button><div id="arEditControls" hidden><div id="arSelection"></div><div class="tools"><div id="selectedARTools"><button id="rotateAR">↻ ۱۵°</button><button id="colorAR">رنگ</button><button id="deleteAR">حذف</button></div><select id="arProduct" aria-label="نوع قطعه AR"><option value="0">کاناپه ۲۱۰</option><option value="1">تک‌نفره ۹۰</option><option value="2">میز ۱۱۰</option></select><button id="addAR">افزودن +</button></div></div><details id="arSettings" hidden><summary>کف و خط‌کش A—B</summary><div class="calibration-controls"><p id="arMeasurement" class="measurement"></p><label for="aractual">طول واقعی A—B (۱۰۰ تا ۱۰۰۰ سانتی‌متر)</label><div class="input-row"><input id="aractual" type="number" inputmode="decimal" min="100" max="1000" step="0.1" placeholder="مثلاً ۱۰۰"><button id="arcalibrate">کالیبره کن</button><button id="arresetScale">۱:۱</button></div><small>خط A—B برای اندازه‌گیری و کالیبراسیون است؛ جابه‌جایی و چرخش کل چیدمان ابزار مستقل دارد.</small><label class="xr-option"><input id="lightEnabled" type="checkbox" checked> نور محیط (در صورت پشتیبانی)</label><label class="xr-option"><input id="depthEnabled" type="checkbox" checked> اکلوژن عمق واقعی (در صورت پشتیبانی)</label></div><button id="rescanFloor">انتخاب مجدد کف</button></details><small id="diagnostics" dir="ltr">tracking — · floor SCANNING</small></div></div>
+<dialog id="photoHelp"><h2>یک قاب از خانه‌ات</h2><p>در مرورگرهای سازگار با WebXR Raw Camera Access، دکمه عکس فریم واقعی دوربین و مبلمان سه‌بعدی را درون چیدو ترکیب می‌کند.</p><p>اگر دسترسی داخلی دوربین روی دستگاه فعال نباشد، قابلیت کپچر AR ارائه نمی‌شود؛ عکس ساختگی یا بدون پس‌زمینه واقعی ذخیره نخواهد شد.</p><button id="closePhoto" class="primary">متوجه شدم</button></dialog>
 <dialog id="modeSheet"><button id="closeMode" class="sheet-close" aria-label="بستن">×</button><h2>چطور می‌خواهید ادامه دهید؟</h2><button class="mode-option" id="chooseAR"><span>واقعیت افزوده (AR)<small>قرار دادن باکس‌ها در فضای واقعی خانه</small></span><span class="mode-icon">♧</span></button><button class="mode-option" id="chooseSimple"><span>مدل ساده<small>بدون دوربین، روی پیش‌زمینهٔ ساده</small></span><span class="mode-icon">◇</span></button><p id="modeSupport">در حال بررسی سازگاری…</p></dialog>
 <dialog id="arError"><button id="closeARError" class="sheet-close" aria-label="بستن خطای AR">×</button><h2>چرا AR شروع نشد؟</h2><p id="arErrorMessage"></p><ol><li>لینک را از منوی سه‌نقطه با «باز کردن در Chrome» در تب اصلی مرورگر باز کن.</li><li>Chrome و Google Play Services for AR را از فروشگاه رسمی به‌روز کن و مجوز دوربین سایت را بررسی کن.</li></ol><details open><summary>جزئیات خطا برای بررسی</summary><pre id="arErrorDetails" dir="ltr"></pre></details><button id="basicAR" class="primary">آزمون سادهٔ AR</button><p>این آزمون پنل کنترل را الزامی نمی‌کند. اگر پنل ظاهر نشد، دوربین را به سمت کف بگیر؛ در این آزمون بدون پنل، کف پایدار خودکار تثبیت می‌شود؛ برای خروج، دکمهٔ بازگشت گوشی را بزن.</p><button id="copyARError">کپی گزارش خطا</button></dialog>
-<script type="module" src="app.js?v=0.4.3"></script></body></html>
+<script type="module" src="app.js?v=0.5.0"></script></body></html>
 

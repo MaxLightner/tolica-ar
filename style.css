@@ -389,3 +389,54 @@
  .rooms-page .theme-blocks{height:29px}
  .catalog-tile span{font-size:16px!important}
 }
+
+
+/* CHIDO v0.5 — compact AR controls, always-visible live plan and inline calibration */
+#overlay.floor-ready .ar-bottom.compact{display:block!important}
+#overlay.floor-ready #arBottomActions{display:flex!important}
+#overlay.floor-ready #confirmFloor{display:none!important}
+#overlay .ar-bottom.compact{top:auto!important;bottom:max(9px,env(safe-area-inset-bottom));left:50%!important;right:auto!important;transform:translateX(-50%);width:max-content!important;max-width:calc(100vw - 110px);padding:6px!important;border-radius:18px;background:#f2e9deeb;overflow:visible}
+.ar-bottom-actions{display:flex;align-items:center;gap:5px;direction:rtl;pointer-events:auto}
+.ar-bottom-actions button{white-space:nowrap;font-size:12px;border:0;border-radius:12px;min-height:42px;padding:8px 12px;color:#fff;background:#3d5e55}
+.ar-bottom-actions button+button{background:#e0d4c5;color:#3e433c}
+#overlay.floor-ready .ar-dock{position:absolute;left:max(8px,env(safe-area-inset-left));right:auto;top:50%;bottom:auto;transform:translateY(-50%);width:64px;max-width:64px;max-height:min(65svh,430px);overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding:5px;border-radius:19px;margin:0;direction:rtl;scrollbar-width:none}
+#overlay.floor-ready .ar-dock button{flex:0 0 auto;min-height:50px;width:100%;padding:5px 0;font-size:19px}
+#overlay.floor-ready .ar-dock button span{font-size:9px}
+#overlay.floor-ready .ar-tool-sheet{position:absolute;left:80px;right:10px;bottom:calc(66px + env(safe-area-inset-bottom));width:auto;max-width:470px;max-height:55svh;margin:0 auto;z-index:19}
+.ar-minimap{position:absolute;z-index:13;right:max(9px,env(safe-area-inset-right));bottom:calc(73px + env(safe-area-inset-bottom));width:149px;max-width:calc(100vw - 98px);padding:6px;background:#f8f2e9f2;border:1px solid #bfb4a6;border-radius:15px;box-shadow:0 5px 24px #17242145;direction:rtl;pointer-events:auto}
+.ar-minimap .map-title{display:flex;align-items:center;justify-content:space-between;gap:5px;font-size:10px;padding:1px 4px 5px}
+.ar-minimap button{font-size:9px;border-radius:9px;background:#e6ded2;padding:5px 7px;border:0;min-height:24px}
+.ar-minimap svg{width:100%;height:auto;aspect-ratio:320/250;display:block;border-radius:9px;touch-action:none;background:#f4efe7}
+.ar-minimap .map-meta{font-size:8px;color:#726456;line-height:1.6;padding:5px 3px 1px}
+.ar-minimap .map-rotate{display:none;gap:6px}
+.ar-minimap.expanded{inset:max(64px,env(safe-area-inset-top)) 10px calc(78px + env(safe-area-inset-bottom)) 78px;width:auto;max-width:none;border-radius:20px;display:flex;flex-direction:column;z-index:20}
+.ar-minimap.expanded .map-title{font-size:14px}
+.ar-minimap.expanded svg{flex:1;min-height:0;height:100%;width:100%;aspect-ratio:auto}
+.ar-minimap.expanded .map-meta{font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
+.ar-minimap.expanded .map-rotate{display:flex}
+.ar-minimap.expanded .map-rotate button{font-size:22px;padding:3px 15px}
+.ab-inline{position:absolute;z-index:14;pointer-events:auto;transform:translate(-50%,-115%);direction:rtl}
+.ab-inline>button{font-size:11px;min-height:34px;padding:7px 12px;background:#fff5dcf0;border:1px solid #ad8a56;border-radius:16px;white-space:nowrap}
+.ab-inline form{position:absolute;top:40px;left:50%;transform:translateX(-50%);width:206px;background:#faf5ed;padding:10px;border-radius:13px;box-shadow:0 6px 20px #0004;display:flex;gap:6px;flex-wrap:wrap}
+.ab-inline label{font-size:10px;margin:0;width:100%;white-space:nowrap}
+.ab-inline input{min-width:0;width:100px;font-size:15px;padding:6px;border:1px solid #b3a08a;border-radius:8px}
+.ab-inline form button{padding:6px;border-radius:8px;background:#3d5e55;color:white;border:0}
+.saved-layout-grid{display:grid;grid-template-columns:1fr;gap:7px}
+.saved-plan-card{display:flex;align-items:center;gap:8px;padding:5px;border-radius:13px;min-height:70px}
+.saved-plan-open{display:grid;grid-template-columns:80px minmax(0,1fr);grid-template-rows:1fr 1fr;align-items:center;gap:3px 10px;min-height:58px}
+.saved-plan-image{grid-row:1/3;aspect-ratio:320/234;width:80px;overflow:hidden}
+.saved-plan-open strong{font-size:12px;align-self:end;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved-plan-open small{font-size:10px;align-self:start}
+.saved-plan-delete{flex:0 0 auto;align-self:center}
+.rooms-page .room-choice{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));gap:9px}
+.rooms-page .room-choice .card{min-height:115px;aspect-ratio:1.16;padding:10px}
+.rooms-page .room-choice .card svg{width:58px;height:58px}
+.rooms-page .room-prefs{margin:8px 0 12px;padding:6px 0}
+.rooms-page .pref-heading{margin:9px 0 5px}
+.wall-art-upload{display:flex;align-items:center;gap:10px;background:#e5dbcf;border-radius:11px;padding:9px}
+.wall-art-upload input{font-size:11px;width:100%;min-width:0}
+.ar-save-list{display:flex;flex-direction:column;gap:7px;margin-top:12px}
+.ar-save-list-row{display:flex;gap:8px;align-items:center;background:#e9ded3;padding:8px;border-radius:10px}
+.ar-save-list-row button{font-size:11px;padding:8px}
+.ar-save-list-row strong{flex:1;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+@media(max-height:590px){#overlay.floor-ready .ar-dock{top:54%;max-height:61svh}#overlay.floor-ready .ar-dock button{min-height:41px}.ar-minimap{width:130px}.ar-minimap.expanded{top:55px}}

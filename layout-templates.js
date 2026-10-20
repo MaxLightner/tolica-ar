@@ -46,38 +46,27 @@ const sofa=(seats,point)=>({index:seats===1?1:0,seats,options:{size:[seats===1?.
 const item=(index,point,options={})=>({index,...point,options});
 const rotatePoint=(p,yaw,dx=0,dz=0)=>({...p,x:p.x*Math.cos(yaw)+p.z*Math.sin(yaw)+dx,z:-p.x*Math.sin(yaw)+p.z*Math.cos(yaw)+dz,rotation:(p.rotation||0)+yaw});
 function seatingPositions(kind,n){
- const mid=-2,rx=2.7,rz=1.75,positions=[];
- // Sofa front faces centre; local +Z is the seating-forward axis.
- const fromAngle=a=>{const x=Math.sin(a)*rx,z=mid-Math.cos(a)*rz;
-  return vec(x,z,Math.atan2(-x,mid-z));};
- if(kind==='conversation'){
-  for(let i=0;i<n;i++)positions.push(fromAngle(-Math.PI*.68+i*(Math.PI*1.36/Math.max(1,n-1))));
- }else if(kind==='tv'){
-  for(let i=0;i<n;i++){
-   const fractions=[0,-1,1,-.5,.5];
-   const x=fractions[i]*2.65,z=-3.1+Math.abs(fractions[i])*.68;
-   positions.push(vec(x,z,Math.max(-.65,Math.min(.65,-x*.2))));
-  }
- }else if(kind==='u'){
-  const places=[vec(0,-3.75,0),vec(-2.55,-2,Math.PI/2),vec(2.55,-2,-Math.PI/2),vec(-2.35,-.60,Math.PI/2),vec(2.35,-.60,-Math.PI/2)];
-  positions.push(...places.slice(0,n));
- }else if(kind==='l'){
-  const places=[vec(-1.05,-3.55,0),vec(1.0,-3.55,0),vec(2.7,-1.95,-Math.PI/2),vec(2.7,-.25,-Math.PI/2),vec(-2.1,-1.3,.15)];
-  positions.push(...places.slice(0,n));
- }else{
-  const places=[vec(-1.65,-3.55,0),vec(1.65,-3.55,0),vec(-1.65,-.42,Math.PI),vec(1.65,-.42,Math.PI),vec(0,-1.04,-Math.PI/2)];
-  positions.push(...places.slice(0,n));
- }
- return positions;
+ // Coordinated furniture groups around a shared focal point, in metres.
+ // Every template has a clear sightline and usable gaps beside the principal sofa.
+ const positions={
+  conversation:[vec(0,-3.55,0),vec(-2.4,-1.55,Math.PI/2),vec(2.4,-1.55,-Math.PI/2),vec(0,.55,Math.PI),vec(-3.0,-3.65,.35)],
+  tv:[vec(0,-3.55,0),vec(-2.55,-2.35,.28),vec(2.55,-2.35,-.28),vec(-2.55,-4.40,.28),vec(2.55,-4.40,-.28)],
+  u:[vec(0,-3.55,0),vec(-2.5,-1.65,Math.PI/2),vec(2.5,-1.65,-Math.PI/2),vec(0,.60,Math.PI),vec(-2.5,.45,Math.PI/2)],
+  l:[vec(-1.35,-3.55,0),vec(1.4,-3.55,0),vec(2.8,-1.25,-Math.PI/2),vec(2.8,.75,-Math.PI/2),vec(-2.4,-1.55,Math.PI/2)],
+  facing:[vec(-1.42,-3.55,0),vec(1.42,-3.55,0),vec(-1.42,.55,Math.PI),vec(1.42,.55,Math.PI),vec(-3.15,-1.5,Math.PI/2)]
+ };
+ return (positions[kind]||positions.conversation).slice(0,n);
 }
 function makeLiving(kind,capacity){
- const seats=livingSeats(capacity);const points=seatingPositions(kind,seats.length);
- const result=seats.map((count,i)=>sofa(count,points[i]));
- const tableIndex=kind==='l'?13:2;
- result.push(item(tableIndex,vec(0,-1.95)));
- if(kind!=='tv')result.push(item(12,vec(-.9,-1.05)));
- else result.push(item(12,vec(2.1,-.6)));
- if(capacity>=9)result.push(item(12,vec(1.1,-1.05)));
+ const seats=livingSeats(capacity),points=seatingPositions(kind,seats.length);
+ // A shared carpet gives the group an intentional visual centre.
+ const result=[item(7,vec(0,-1.65),{size:[3.2,.015,2.1]})];
+ result.push(...seats.map((count,i)=>sofa(count,points[i])));
+ result.push(item(kind==='l'?13:2,vec(kind==='l'?.22:0,-1.65)));
+ // Side table and floor lamp are positioned outside walking and seating footprints.
+ result.push(item(12,vec(kind==='l'?-2.35:-1.55,-3.0)));
+ result.push(item(6,vec(kind==='tv'?3.7:-3.55,-3.65)));
+ if(capacity>=9)result.push(item(12,vec(1.55,.15)));
  return result;
 }
 function makeDining(kind,capacity){

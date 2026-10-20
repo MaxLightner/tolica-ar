@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import {applyRugStyle} from './rug-textures.js?v=0.3.0';
+import {applyRugStyle} from './rug-textures.js?v=0.5.0';
 
 // Lightweight, self-contained decor: no remote assets, textures, or licensing dependencies.
 // Like the furniture meshes, the main mesh origin sits at its geometric center.
@@ -57,7 +57,8 @@ function artTexture(index){
 function buildWallArt(index,[w,h,d]){
  const image=new THREE.Mesh(new THREE.BoxGeometry(w*.93,h*.93,.015),
   new THREE.MeshStandardMaterial({color:'#fff',roughness:1,map:artTexture(index)}));
- const wood=mat(index%2?'#3d4448':'#936e50',.7);
+ image.name='wall-art-image';
+  const wood=mat(index%2?'#3d4448':'#936e50',.7);
  const frame=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),wood);
  image.position.z=d/2+.009;frame.add(image);
  if(index===21){

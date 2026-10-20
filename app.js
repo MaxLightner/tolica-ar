@@ -1,14 +1,16 @@
-import {explainXR} from './xr.js?v=0.4.3';
+import {explainXR} from './xr.js?v=0.5.0';
 import {photos,savePhoto,removePhoto} from './storage.js';
-import {CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto} from './camera-capture.js?v=0.3.2';
-import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.3.2';
-import {allowedCapacities,layoutOptions,buildLayout,layoutSummary,layoutPreviewSvg} from './layout-templates.js?v=0.3.2';
-import {readDraft,saveDraft,clearDraft,listCustomLayouts,saveCustomLayout,removeCustomLayout} from './layout-storage.js?v=0.3.2';
-import {ASSET_CATEGORIES,RUG_SIZE_PRESETS,isLamp,isSofa,isTable,isWallArt,variantsFor,categoryForIndex} from './asset-metadata.js?v=0.3.4';
-import {savedPlanSvg} from './saved-plan.js?v=0.3.2';
-import {CUSHION_PRESETS} from './sofa-cushions.js?v=0.3.2';
+import {CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto} from './camera-capture.js?v=0.5.0';
+import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.5.0';
+import {allowedCapacities,layoutOptions,buildLayout,layoutSummary,layoutPreviewSvg} from './layout-templates.js?v=0.5.0';
+import {readDraft,saveDraft,clearDraft,listCustomLayouts,saveCustomLayout,overwriteCustomLayout,removeCustomLayout} from './layout-storage.js?v=0.5.0';
+import {ASSET_CATEGORIES,RUG_SIZE_PRESETS,isLamp,isSofa,isTable,isWallArt,variantsFor,categoryForIndex} from './asset-metadata.js?v=0.5.0';
+import {savedPlanSvg} from './saved-plan.js?v=0.5.0';
+import {LiveMiniMap} from './minimap.js?v=0.5.0';
+import {CUSHION_PRESETS} from './sofa-cushions.js?v=0.5.0';
 const $=s=>document.querySelector(s),app=$('#app'),fa=n=>n.toLocaleString('fa-IR');
-let studio,Scene,palette,space='پذیرایی',layout='conversation',supported=false,routeVersion=0,photoURLs=[],savedItems=[],arReport=null,sceneMemory=null,arStarting=false,lastXRErrorReport='';
+let studio,Scene,palette,space='پذیرایی',layout='conversation',supported=false,routeVersion=0,photoURLs=[],savedItems=[],arReport=null,sceneMemory=null,arStarting=false,lastXRErrorReport='',activeSavedLayoutId=null;
+const minimap=new LiveMiniMap($('#arMiniMap'),()=>studio);
 const themes=[
  {name:'کرم و چوب',colors:['#cfbeaa','#c9bdae','#aa9882','#d7c8b4']},
  {name:'آبی و کرم',colors:['#7a9196','#d7c5b2','#879fa2','#c3b7a9']},
@@ -61,12 +63,12 @@ const sketches={
 function svg(kind='living'){return `<svg viewBox="0 0 330 300" class="sketch" aria-hidden="true">${sketches[kind]||sketches.living}</svg>`;}
 function heroArt(){return `<svg viewBox="0 0 600 520" class="sketch" aria-hidden="true"><g stroke="#c4c8b8" stroke-width=".8"><path d="M60 380l260 86 236-106-234-85zM60 380V133l262-67 234 68v226M322 66v209M77 374l245 79 218-98"/><path d="M91 153l119-30v119L91 272zM151 138v118m-60-48 119-34"/></g><g transform="translate(57 110)"><path d="M73 215v-81q0-18 18-16l157 19q19 2 19 18v78M73 157l-35-5q-13-2-13 14v73l244 43 94-45v-68q0-12-11-9l-36 16M25 194l242 39 96-44M44 198v25l222 39 76-36v-28M267 233v49M52 244v23m194 12v22m95-54v21M75 164l190 30 48-18M171 133v45"/><path stroke="#9aa18d" d="M26 191l241 38 94-44m-286-25 189 30 45-17"/></g><path d="M328 389l76-33 75 23-77 36zM328 389v12l74 28 77-35v-15M338 403v25m126-26v25M401 429v14"/><path d="M443 286v-109m-35 0h70l-17-55h-39zM427 293l17-7 18 7M443 122v-12"/><path d="M499 332v-49m-17 41q-30-8-26-34 27-3 43 33m1-18q-3-30 21-41 18 24-21 41M481 331h38l-6 38h-25z"/><path stroke="#c2c6b7" d="m100 411 218 66 210-96M90 422l227 69m49-31 143-64"/><path stroke="#9da58f" d="M281 77l10 10m-15 4 11-2M75 310l-15 7m13-16-4 12"/></svg>`;}
 function toast(message){$('#toast').textContent=message;$('#toast').style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').style.display='none',4500);}
-function footer(){return `<footer class="foot"><span>خانه، به سلیقهٔ تو.</span><span dir="ltr">TOLICA · PROTOTYPE 0.2</span></footer>`;}
+function footer(){return `<footer class="foot"><span>خانه، به سلیقهٔ تو.</span><span dir="ltr">CHIDO · 0.5.0</span></footer>`;}
 function heading(step,title,sub,back){return `<div class="page-heading"><div><span class="eyebrow">${step}</span><h1>${title}</h1><p>${sub}</p></div>${back?`<a class="back" href="#${back}">بازگشت ←</a>`:''}</div>`;}
 async function full(){if(document.fullscreenElement){await document.exitFullscreen();return;}if(!document.documentElement.requestFullscreen){toast('مرورگر شما تمام‌صفحه را پشتیبانی نمی‌کند.');return;}try{await document.documentElement.requestFullscreen();}catch{toast('ورود به تمام‌صفحه ممکن نشد؛ می‌توانی ادامه بدهی.');}}
 $('#fullscreen').onclick=full;document.addEventListener('fullscreenchange',()=>$('#fullscreen').textContent=document.fullscreenElement?'خروج از تمام‌صفحه ↙':'تمام‌صفحه ⛶');
 async function support(){try{supported=!!(isSecureContext&&navigator.xr&&await navigator.xr.isSessionSupported('immersive-ar'));}catch{supported=false;}return supported;}
-async function loadScene(){if(!Scene){const m=await import('./scene.js?v=0.4.3');Scene=m.Studio;palette=m.palette;}}
+async function loadScene(){if(!Scene){const m=await import('./scene.js?v=0.5.0');Scene=m.Studio;palette=m.palette;}}
 let draftTimer=null;
 function currentSceneRecord(){
  if(!studio)return null;
@@ -82,6 +84,7 @@ function scheduleDraftSave(){
 }
 function loadSceneRecord(record){
  if(!record?.scene)return;
+ activeSavedLayoutId=record.id||null;
  sceneMemory=record.scene;space=record.room||'پذیرایی';layout=record.layout||'conversation';
  peopleCount=Number(record.capacity)||5;styleChoice=record.style||'مینیمال';themeIndex=record.theme||0;
 }
@@ -91,7 +94,7 @@ function updateObjects(){if(!studio)return;const buttons=studio.items.map(m=>`<b
  const mesh=studio.selected,label=mesh?mesh.userData.product.name+' · '+mesh.userData.product.size.map(v=>fa(Math.round(v*100))).join(' × ')+' سانتی‌متر':'یک قطعه را لمس کن';for(const id of ['selection','arSelection']){const el=$('#'+id);if(el)el.textContent=label;}
  const rotation=$('#rotation');if(rotation)rotation.value=mesh?Math.round(mesh.rotation.y*180/Math.PI)%360:0;
  for(const id of ['rotate','delete','rotation']){const el=$('#'+id);if(el)el.disabled=!mesh;}for(const id of ['selectedARTools']){const el=$('#'+id);if(el)el.hidden=!mesh;}
- updateMeasurements();scheduleDraftSave();}
+ updateMeasurements();minimap.render();scheduleDraftSave();}
 function updateMeasurements(){if(!studio)return;const m=studio.measurement();for(const id of ['measurement','arMeasurement']){const el=$('#'+id);if(el)el.textContent=`A—B: ${fa(m.measuredCm)} سانتی‌متر اندازه‌گیری‌شده · ضریب ${fa(m.scale)} · طول اصلاح‌شده ${fa(m.correctedCm)} سانتی‌متر`;}}
 function calibrationControls(prefix=''){return `<div class="calibration-controls"><p class="measurement" id="${prefix?'arMeasurement':'measurement'}"></p><label for="${prefix}actual">طول واقعی A—B (۱۰۰ تا ۱۰۰۰ سانتی‌متر)</label><div class="input-row"><input id="${prefix}actual" type="number" inputmode="decimal" min="100" max="1000" step="0.1" placeholder="مثلاً ۱۰۰"><button id="${prefix}calibrate">کالیبره کن</button><button id="${prefix}resetScale">۱:۱</button></div><small>A و B فقط مرجع اندازه‌گیری و کالیبراسیون هستند؛ برای جابه‌جایی یا چرخش چیدمان از ابزارهای مستقل استفاده کن.</small></div>`;}
 function bindCalibration(prefix=''){const initial=studio.measurement();if(initial.actualCm!==null)$('#'+prefix+'actual').value=initial.actualCm;const fail=fn=>()=>{try{fn();}catch(error){toast(error.message);}};$('#'+prefix+'calibrate').onclick=fail(()=>{studio.calibrate($('#'+prefix+'actual').value);toast('اندازه و فاصلهٔ همهٔ قطعات با هم اصلاح شد.');});$('#'+prefix+'resetScale').onclick=()=>studio.resetCalibration();}
@@ -99,7 +102,7 @@ function snapshotItems(){savedItems=studio?studio.items.map(m=>({id:m.userData.i
 function uploadControl(){return `<label class="upload">بارگذاری تصویر +<input id="upload" type="file" accept="image/png,image/jpeg,image/webp" multiple></label>`;}
 async function uploadFiles(e){const files=[...e.target.files];if(files.length>20){toast('هر بار حداکثر ۲۰ تصویر بارگذاری کن.');return;}let count=0;for(const f of files){if(!['image/png','image/jpeg','image/webp'].includes(f.type)||f.size>15*1024*1024){toast('فقط PNG، JPEG و WebP تا ۱۵ مگابایت پذیرفته می‌شود.');continue;}try{const img=await createImageBitmap(f);img.close();await savePhoto(f,'تصویر بارگذاری‌شده');count++;}catch{toast('تصویر خوانده یا ذخیره نشد؛ فضای مرورگر را بررسی کن.');}}if(count){toast(`${fa(count)} تصویر به گالری اضافه شد.`);await render();}e.target.value='';}
 async function render(){const version=++routeVersion;const route=location.hash.slice(1)||'welcome';document.body.dataset.route=route;if(studio?.session){location.hash='studio';return;}if(studio){persistDraft();snapshotItems();sceneMemory=studio.exportState();studio.destroy();studio=null;}photoURLs.forEach(URL.revokeObjectURL);photoURLs=[];
- if(route==='welcome'){app.innerHTML=`<section class="welcome-screen"><div class="welcome-title"><h1>TOLICA</h1><p>خانه را جور دیگری ببینید</p></div><img class="welcome-photo" src="assets/welcome.png" alt="صندلی کرم و گلدان در فضایی آرام"><div class="welcome-bottom"><button class="primary" id="welcome">ورود به نمایشگاه <span>→</span></button><button class="quick-ar" id="quickAR">ورود سریع به AR ↗</button><span class="welcome-wordmark">TOLICA</span></div></section>`;$('#welcome').onclick=()=>{full();location.hash='spaces';};const draft=readDraft();if(draft)$('#quickAR').textContent='ادامه چیدمان قبلی ↗';$('#quickAR').onclick=()=>{if(draft)loadSceneRecord(draft);else {layout='conversation';sceneMemory=null;}location.hash='studio';};return;}
+ if(route==='welcome'){app.innerHTML=`<section class="welcome-screen"><div class="welcome-title"><h1>CHIDO</h1><p>خانه را جور دیگری ببینید</p></div><img class="welcome-photo" src="assets/welcome.png" alt="صندلی کرم و گلدان در فضایی آرام"><div class="welcome-bottom"><button class="primary" id="welcome">ورود به نمایشگاه <span>→</span></button><button class="quick-ar" id="quickAR">ورود سریع به AR ↗</button><span class="welcome-wordmark">CHIDO</span></div></section>`;$('#welcome').onclick=()=>{full();location.hash='spaces';};const draft=readDraft();if(draft)$('#quickAR').textContent='ادامه چیدمان قبلی ↗';$('#quickAR').onclick=()=>{if(draft)loadSceneRecord(draft);else {layout='conversation';sceneMemory=null;}location.hash='studio';};return;}
  if(route==='spaces'){app.innerHTML=`<section class="page rooms-page">${heading('۰۱ / فضای شما','کدام فضا را می‌خواهی بچینی؟','فضا، سبک و رنگ دلخواهت را انتخاب کن.','welcome')}
  <div class="cards room-choice">${[['living','پذیرایی','برای کنار هم بودن'],['dining','ناهارخوری','دور یک میز، کنار هم'],['dining','آشپزخانه','میز غذاخوری و دورهمی'],['bedroom','اتاق خواب','گوشه‌ای برای آرامش'],['office','فضای کار','جایی برای ایده‌های تازه']].map(([key,title,sub])=>`<button class="card ${space===title?'selected':''}" data-space="${title}" aria-pressed="${space===title}">${svg(key)}<strong>${title}</strong><small>${sub}</small></button>`).join('')}</div>
  <section class="room-prefs"><div class="pref-heading">سبک چیدمان <small>اختیاری</small></div><div class="style-pills">${['مینیمال','مدرن','کلاسیک','همه'].map(n=>`<button data-style="${n}" class="${styleChoice===n?'selected':''}">${n}</button>`).join('')}</div>
@@ -136,13 +139,13 @@ async function render(){const version=++routeVersion;const route=location.hash.s
   </div>`).join('')||'<p class="saved-empty">هنوز چیدمانی ذخیره نکرده‌ای.</p>'}
  </div></div>
  </div></section>`;
- document.querySelectorAll('[data-layout]').forEach(btn=>btn.onclick=()=>{layout=btn.dataset.layout;sceneMemory=null;previewEnabled=false;clearDraft();location.hash='studio';});
+ document.querySelectorAll('[data-layout]').forEach(btn=>btn.onclick=()=>{layout=btn.dataset.layout;sceneMemory=null;activeSavedLayoutId=null;previewEnabled=false;clearDraft();location.hash='studio';});
  document.querySelectorAll('[data-saved-layout]').forEach(btn=>btn.onclick=()=>{const data=listCustomLayouts().find(x=>x.id===btn.dataset.savedLayout);if(!data)return;loadSceneRecord(data);location.hash='studio';});
  document.querySelectorAll('[data-remove-layout]').forEach(btn=>btn.onclick=()=>{removeCustomLayout(btn.dataset.removeLayout);render();});return;}
    if(route==='detail'){app.innerHTML=`<section class="page detail-page"><a class="back" href="#layouts">بازگشت ←</a><img class="detail-photo" src="assets/living.png" alt="چیدمان مبلمان کرم در فضای نشیمن"><div class="dots"><i></i><i></i><i></i></div><h1>${layout==='social'?'چیدمان صمیمی':layout==='light'?'چیدمان سبک و روشن':'چیدمان کلاسیک ۱'}</h1><p>یک ایده برای ${space}؛ با ترکیبی از حجم‌های متنوع و رنگ‌های طبیعی.</p><p class="prototype-note">در محیط آزمایشی مبلمان کم‌پلیگان با ابعاد واقعی جایگزین مدل مبلمان می‌شوند.</p><button id="continueLayout" class="primary">ادامهٔ چیدمان و ویرایش <span>→</span></button></section>`;$('#continueLayout').onclick=()=>location.hash='studio';return;}
- if(route==='entry'){app.innerHTML=`<section class="page">${heading('۰۳ / ورود به تجربه','حالا در خانه‌ات ببین.','چند قدم تا امتحان کردن چیدمان فاصله داری.','layouts')}<div class="entry"><div><h2>فضای واقعی، انتخاب تازه</h2><p>در محیطی روشن، گوشی را آرام به سمت کف بگیر. پس از نمایش کف پیشنهادی، «تثبیت این کف» را بزن و خط A–B را روی یک طول معلوم بگذار.</p><div id="support" class="notice">در حال بررسی سازگاری مرورگر…</div><div class="entry-actions"><button id="enterAR" class="primary" disabled>ورود به AR ↗</button><button id="preview">محیط آزمایشی</button></div><p>نیازمند Android Chrome، گوشی سازگار با ARCore، اتصال امن و اجازهٔ دسترسی به دوربین. ورود به AR فقط با لمس دکمه انجام می‌شود.</p></div><div class="entry-illustration">${svg('phone')}</div></div><div class="notice">در مرورگرهای سازگار، کپچر داخلی تولیکا تصویر دوربین واقعی و مدل‌های سه‌بعدی را مستقیماً در گالری ثبت می‌کند.</div></section>${footer()}`;$('#preview').onclick=()=>location.hash='studio';await support();if(version!==routeVersion)return;$('#support').textContent=supported?'AR در این مرورگر در دسترس است. مجوزها و ردیابی هنگام شروع بررسی می‌شوند.':'AR در این دستگاه یا مرورگر در دسترس نیست. محیط آزمایشی را باز کن، یا با Chrome روی Android سازگار امتحان کن.';$('#enterAR').disabled=!supported;$('#enterAR').onclick=()=>{location.hash='studio';toast('محیط آماده می‌شود؛ سپس «شروع AR» را بزن.');};return;}
+ if(route==='entry'){app.innerHTML=`<section class="page">${heading('۰۳ / ورود به تجربه','حالا در خانه‌ات ببین.','چند قدم تا امتحان کردن چیدمان فاصله داری.','layouts')}<div class="entry"><div><h2>فضای واقعی، انتخاب تازه</h2><p>در محیطی روشن، گوشی را آرام به سمت کف بگیر. پس از نمایش کف پیشنهادی، «تثبیت این کف» را بزن و خط A–B را روی یک طول معلوم بگذار.</p><div id="support" class="notice">در حال بررسی سازگاری مرورگر…</div><div class="entry-actions"><button id="enterAR" class="primary" disabled>ورود به AR ↗</button><button id="preview">محیط آزمایشی</button></div><p>نیازمند Android Chrome، گوشی سازگار با ARCore، اتصال امن و اجازهٔ دسترسی به دوربین. ورود به AR فقط با لمس دکمه انجام می‌شود.</p></div><div class="entry-illustration">${svg('phone')}</div></div><div class="notice">در مرورگرهای سازگار، کپچر داخلی چیدو تصویر دوربین واقعی و مدل‌های سه‌بعدی را مستقیماً در گالری ثبت می‌کند.</div></section>${footer()}`;$('#preview').onclick=()=>location.hash='studio';await support();if(version!==routeVersion)return;$('#support').textContent=supported?'AR در این مرورگر در دسترس است. مجوزها و ردیابی هنگام شروع بررسی می‌شوند.':'AR در این دستگاه یا مرورگر در دسترس نیست. محیط آزمایشی را باز کن، یا با Chrome روی Android سازگار امتحان کن.';$('#enterAR').disabled=!supported;$('#enterAR').onclick=()=>{location.hash='studio';toast('محیط آماده می‌شود؛ سپس «شروع AR» را بزن.');};return;}
  if(route==='studio'){app.innerHTML=`<section class="ar-launch">
- <div id="viewport" class="viewport ar-launch-stage"><div class="launch-placeholder onboarding"><div class="launch-mark">TOLICA · AR</div><div class="launch-plan">${planSketch(layout==='empty'?'light':layout)}</div><h2>سه حرکت تا دیدن چیدمان</h2>
+ <div id="viewport" class="viewport ar-launch-stage"><div class="launch-placeholder onboarding"><div class="launch-mark">CHIDO · AR</div><div class="launch-plan">${planSketch(layout==='empty'?'light':layout)}</div><h2>سه حرکت تا دیدن چیدمان</h2>
  <div class="onboard-steps">
   <div><span>۱</span><p><strong>دوربین رو به کف</strong><small>فرش یا سطح زمین را داخل تصویر نگه دار.</small></p></div>
   <div><span>۲</span><p><strong>حرکت آرام چپ و راست</strong><small>تا دایره سبز روی کف ظاهر شود.</small></p></div>
@@ -154,9 +157,11 @@ async function render(){const version=++routeVersion;const route=location.hash.s
   await loadScene();if(version!==routeVersion)return;
   studio=new Scene($('#viewport'),updateObjects);
   if(sceneMemory)studio.restoreState(sceneMemory);else{studio.seed(layout,space,peopleCount);const colors=themes[themeIndex].colors;studio.items.forEach((m,i)=>{if(m.userData.index!==7)m.material.color.set(colors[i%colors.length]);});}
-  studio.onEnd=()=>{setPhotoMode(false);closeArSheet();$('#arDock').hidden=true;$('#objectQuick').hidden=true;$('#scanReadiness').hidden=true;$('#measureHint').hidden=true;};
+  studio.onEnd=()=>{setPhotoMode(false);closeArSheet();$('#arDock').hidden=true;$('#objectQuick').hidden=true;$('#scanReadiness').hidden=true;$('#measureHint').hidden=true;$('#arMiniMap').hidden=true;$('#abInline').hidden=true;$('#arBottomActions').hidden=true;};
   studio.onPhotoTap=()=>{};
   studio.onHint=toast;
+   studio.onLiveChange=()=>minimap.render();
+   studio.onABPosition=point=>{const el=$('#abInline');if(!point||!studio?.session||studio.photoMode){el.hidden=true;return;}el.hidden=false;el.style.left=Math.max(72,Math.min(innerWidth-72,point.x))+'px';el.style.top=Math.max(88,Math.min(innerHeight-125,point.y))+'px';$('#abLengthButton').textContent='A—B · '+Math.round(studio.measurement().correctedCm).toLocaleString('fa-IR')+' cm ✎';};
   let quickSmoothed=null,quickLastSelected=null;
   studio.onSelectionScreen=position=>{
    const quick=$('#objectQuick');if(!quick)return;
@@ -191,8 +196,8 @@ async function render(){const version=++routeVersion;const route=location.hash.s
  await support();if(version!==routeVersion)return;
  $('#startAR').textContent=supported?'شروع اسکن کف و ورود به AR ↗':'بررسی دسترسی به AR';
  $('#startAR').disabled=false;$('#startAR').onclick=()=>startAR(false);return;}
- if(route==='gallery'){app.innerHTML=`<section class="page">${heading('گالری شخصی','قاب‌هایی از خانهٔ تو','ایده‌هایی که دوست داری، اینجا نگه دار.','welcome')}<div class="no-print">${uploadControl()}</div><div class="notice">تصاویر فقط در همین مرورگر و همین نشانی، روی دستگاه تو ذخیره می‌شوند. با پاک کردن داده‌های سایت حذف می‌شوند؛ تصویرهای مهم را دانلود کن.</div><div id="images" class="images"></div></section>${footer()}`;$('#upload').onchange=uploadFiles;try{const list=(await photos()).sort((a,b)=>b.date-a.date);if(version!==routeVersion)return;if(!list.length){$('#images').className='empty-gallery';$('#images').innerHTML=`${svg('gallery')}<h2>اولین قاب، منتظر توست.</h2><p>از محیط AR کپچر داخلی بگیر یا تصویر دلخواهت را بارگذاری کن.</p><a href="#spaces" class="back">شروع یک چیدمان ←</a>`;}else for(const p of list){const url=URL.createObjectURL(p.blob);photoURLs.push(url);const el=document.createElement('article');el.className='image-card';el.innerHTML=`<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="تصویر ذخیره‌شدهٔ چیدمان"></a><p>${p.kind}<br>${new Date(p.date).toLocaleString('fa-IR')}</p><a href="${url}" download="tulika-${p.id}.png">دانلود ↓</a><button>حذف</button>`;el.querySelector('button').onclick=async()=>{try{await removePhoto(p.id);render();}catch{toast('حذف تصویر انجام نشد.');}};$('#images').append(el);}}catch{$('#images').textContent='دسترسی به گالری ممکن نیست؛ ذخیره‌سازی مرورگر را فعال کن.';}updateCount();return;}
- if(route==='invoice'){const total=savedItems.reduce((s,m)=>s+m.price,0);app.innerHTML=`<section class="page">${heading('برآورد اولیه','پیش‌فاکتور آزمایشی','فقط برای بررسی تجربهٔ انتخاب؛ فاقد اعتبار خرید.','studio')}<div class="invoice"><div class="page-heading"><a class="brand" href="#welcome">TOLICA</a><span class="step">${new Date().toLocaleDateString('fa-IR')}<br>واحد: تومان</span></div><table><thead><tr><th>حجم نمونه</th><th>رنگ</th><th>تعداد</th><th>مبلغ فرضی</th></tr></thead><tbody>${savedItems.map(m=>`<tr><td>${m.name||'قطعه'} ${fa(m.id)}</td><td><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${m.color}"></span></td><td>۱</td><td>${fa(m.price)}</td></tr>`).join('')||'<tr><td colspan="4">هنوز باکسی انتخاب نشده است.</td></tr>'}</tbody><tfoot><tr><td colspan="3">جمع آزمایشی</td><td>${fa(total)} تومان</td></tr></tfoot></table><p>قیمت‌ها کاملاً فرضی‌اند. مالیات، ارسال و خدمات محاسبه نشده است. این صفحه سفارش یا پرداخت ایجاد نمی‌کند.</p></div><button id="print" class="primary no-print" style="margin-top:20px">چاپ / دریافت PDF</button></section>${footer()}`;$('#print').onclick=()=>window.print();return;}
+ if(route==='gallery'){app.innerHTML=`<section class="page">${heading('گالری شخصی','قاب‌هایی از خانهٔ تو','ایده‌هایی که دوست داری، اینجا نگه دار.','welcome')}<div class="no-print">${uploadControl()}</div><div class="notice">تصاویر فقط در همین مرورگر و همین نشانی، روی دستگاه تو ذخیره می‌شوند. با پاک کردن داده‌های سایت حذف می‌شوند؛ تصویرهای مهم را دانلود کن.</div><div id="images" class="images"></div></section>${footer()}`;$('#upload').onchange=uploadFiles;try{const list=(await photos()).sort((a,b)=>b.date-a.date);if(version!==routeVersion)return;if(!list.length){$('#images').className='empty-gallery';$('#images').innerHTML=`${svg('gallery')}<h2>اولین قاب، منتظر توست.</h2><p>از محیط AR کپچر داخلی بگیر یا تصویر دلخواهت را بارگذاری کن.</p><a href="#spaces" class="back">شروع یک چیدمان ←</a>`;}else for(const p of list){const url=URL.createObjectURL(p.blob);photoURLs.push(url);const el=document.createElement('article');el.className='image-card';el.innerHTML=`<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="تصویر ذخیره‌شدهٔ چیدمان"></a><p>${p.kind}<br>${new Date(p.date).toLocaleString('fa-IR')}</p><a href="${url}" download="chido-${p.id}.png">دانلود ↓</a><button>حذف</button>`;el.querySelector('button').onclick=async()=>{try{await removePhoto(p.id);render();}catch{toast('حذف تصویر انجام نشد.');}};$('#images').append(el);}}catch{$('#images').textContent='دسترسی به گالری ممکن نیست؛ ذخیره‌سازی مرورگر را فعال کن.';}updateCount();return;}
+ if(route==='invoice'){const total=savedItems.reduce((s,m)=>s+m.price,0);app.innerHTML=`<section class="page">${heading('برآورد اولیه','پیش‌فاکتور آزمایشی','فقط برای بررسی تجربهٔ انتخاب؛ فاقد اعتبار خرید.','studio')}<div class="invoice"><div class="page-heading"><a class="brand" href="#welcome">CHIDO</a><span class="step">${new Date().toLocaleDateString('fa-IR')}<br>واحد: تومان</span></div><table><thead><tr><th>حجم نمونه</th><th>رنگ</th><th>تعداد</th><th>مبلغ فرضی</th></tr></thead><tbody>${savedItems.map(m=>`<tr><td>${m.name||'قطعه'} ${fa(m.id)}</td><td><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${m.color}"></span></td><td>۱</td><td>${fa(m.price)}</td></tr>`).join('')||'<tr><td colspan="4">هنوز باکسی انتخاب نشده است.</td></tr>'}</tbody><tfoot><tr><td colspan="3">جمع آزمایشی</td><td>${fa(total)} تومان</td></tr></tfoot></table><p>قیمت‌ها کاملاً فرضی‌اند. مالیات، ارسال و خدمات محاسبه نشده است. این صفحه سفارش یا پرداخت ایجاد نمی‌کند.</p></div><button id="print" class="primary no-print" style="margin-top:20px">چاپ / دریافت PDF</button></section>${footer()}`;$('#print').onclick=()=>window.print();return;}
  location.hash='welcome';
 }
 let arSheetMode=null;
@@ -250,11 +255,7 @@ function showArSheet(mode){
     <button class="ar-list-select" data-select-id="${m.userData.id}">${objectIcon(m.userData.index)}<span>${m.userData.product.name}</span></button>
     <button data-show-id="${m.userData.id}" aria-label="${m.visible?'پنهان کردن':'نمایش دادن'}">${m.visible?'◉':'◌'}</button>
     <button data-delete-id="${m.userData.id}" aria-label="حذف">×</button>
-   </div>`).join('')}</div><div class="custom-save-row"><input id="customLayoutName" maxlength="70" placeholder="نام چیدمان من" aria-label="نام چیدمان سفارشی"><button id="saveCustomLayout">ذخیره چیدمان</button></div><small class="sheet-tip">با ◉ نمایش را خاموش یا روشن کن؛ × آبجکت را حذف می‌کند. چیدمان فعلی هم خودکار ذخیره می‌شود.</small>`;
-  $('#saveCustomLayout').onclick=()=>{
-   try{const saved=saveCustomLayout({...currentSceneRecord(),name:$('#customLayoutName').value});toast('چیدمان «'+saved.name+'» ذخیره شد.');}
-   catch{toast('ذخیره چیدمان در این مرورگر ممکن نشد.');}
-  };
+   </div>`).join('')}</div><small class="sheet-tip">با ◉ نمایش را خاموش یا روشن کن؛ × آبجکت را حذف می‌کند. برای ذخیره از پنل پایین استفاده کن.</small>`;
   const refresh=()=>{closeArSheet();showArSheet('objects');};
   body.querySelectorAll('[data-select-id]').forEach(btn=>btn.onclick=()=>{studio.select(studio.items.find(m=>m.userData.id===Number(btn.dataset.selectId)));refresh();});
   body.querySelectorAll('[data-show-id]').forEach(btn=>btn.onclick=()=>{const id=Number(btn.dataset.showId),mesh=studio.items.find(m=>m.userData.id===id);studio.setItemVisible(id,!mesh.visible);refresh();});
@@ -285,18 +286,32 @@ function showArSheet(mode){
    $('#rugColorSwitch').onclick=()=>{closeArSheet();showArSheet('colors');};
   }
   else if(isTable(i)||isWallArt(i)){
-   const variants=variantsFor(i);body.innerHTML=`<p class="feature-caption">اندازه و شکل مدل</p><div class="feature-options">${variants.map(id=>`<button data-variant="${id}" class="${i===id?'selected':''}">${catalogImages[id]?.[0]||'مدل'}</button>`).join('')}</div>`;
+   const variants=variantsFor(i);body.innerHTML=`<p class="feature-caption">اندازه و شکل مدل</p><div class="feature-options">${variants.map(id=>`<button data-variant="${id}" class="${i===id?'selected':''}">${catalogImages[id]?.[0]||'مدل'}</button>`).join('')}</div>${isWallArt(i)?'<label class="wall-art-upload">تصویر تابلو <input type="file" id="artImageFile" accept="image/jpeg,image/png,image/webp"></label><small class="sheet-tip">تصویر شخصی در همین دستگاه و همراه چیدمان ذخیره می‌شود.</small>':''}`;
    body.querySelectorAll('[data-variant]').forEach(btn=>btn.onclick=()=>{if(!studio.replaceSelected(+btn.dataset.variant)){toast('فضای کافی برای این مدل وجود ندارد.');return;}closeArSheet();showArSheet('features');});
+    if(isWallArt(i))$('#artImageFile').onchange=async event=>{try{const file=event.target.files?.[0];if(!file)return;if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>8*1024*1024)throw Error('فایل تصویر معتبر نیست یا بیش از ۸ مگابایت است.');const picture=await createImageBitmap(file),ratio=selected.userData.product.size[0]/selected.userData.product.size[1],canvas=document.createElement('canvas');canvas.width=Math.min(640,Math.round(480*ratio));canvas.height=Math.round(canvas.width/ratio);const context=canvas.getContext('2d');if(!context)throw Error('دسترسی به Canvas ممکن نیست.');const scale=Math.max(canvas.width/picture.width,canvas.height/picture.height),w=picture.width*scale,h=picture.height*scale;context.drawImage(picture,(canvas.width-w)/2,(canvas.height-h)/2,w,h);picture.close?.();if(!studio.setWallArtImage(canvas.toDataURL('image/jpeg',.72),selected))throw Error('تصویر ذخیره نشد.');toast('تصویر تابلو عوض شد.');}catch(error){toast(error.message||'تغییر تصویر ممکن نشد.');}};
   }else body.innerHTML='<p class="sheet-tip">رنگ، چرخش، جابه‌جایی و تعویض مدل در دسترس است.</p>';
- }else if(mode==='save'){
-  title.textContent='ذخیره چیدمان من';
-  body.innerHTML='<p class="sheet-tip">این چیدمان همراه تمام آبجکت‌ها ذخیره می‌شود و پلان نمای بالای آن در «چیدمان‌های ذخیره‌شده» نمایش داده خواهد شد.</p><div class="custom-save-row"><input id="saveArrangementName" maxlength="70" placeholder="مثلاً پذیرایی مشتری شماره ۱"><button id="saveArrangementConfirm">ذخیره چیدمان</button></div>';
-  $('#saveArrangementConfirm').onclick=()=>{try{
-   const label=$('#saveArrangementName').value||'چیدمان '+space;
-   const saved=saveCustomLayout({...currentSceneRecord(),name:label});
-   toast('«'+saved.name+'» ذخیره شد.');closeArSheet();
-  }catch{toast('ذخیره چیدمان انجام نشد؛ حافظه مرورگر را بررسی کن.');}};
- }else if(mode==='settings'){
+ }else if(mode==='save'||mode==='saved'){
+   title.textContent=mode==='save'?'ذخیره چیدمان':'چیدمان‌های ذخیره‌شده';
+   const saved=listCustomLayouts().filter(x=>x.room===space);
+   const name=activeSavedLayoutId?saved.find(x=>x.id===activeSavedLayoutId)?.name:'';
+   body.innerHTML=(mode==='save'?'<p class="sheet-tip">چیدمان در حافظه همین مرورگر ذخیره می‌شود. برای برگشت، بدون خروج از AR چیدمان را از فهرست باز کن.</p><div class="custom-save-row"><input id="saveArrangementName" maxlength="70" placeholder="نام چیدمان" value="'+(name||'').replaceAll('"','&quot;')+'"><button id="saveArrangementConfirm">ذخیره به‌عنوان جدید</button></div>'+(activeSavedLayoutId?'<button id="overwriteArrangement">به‌روزرسانی چیدمان فعلی</button>':''):'')+
+    '<div class="ar-save-list">'+(saved.map(x=>'<div class="ar-save-list-row"><strong>'+x.name.replaceAll('&','&amp;').replaceAll('<','&lt;')+'</strong><button data-open-ar-layout="'+x.id+'">بازکردن</button><button data-remove-ar-layout="'+x.id+'" aria-label="حذف">×</button></div>').join('')||'<small class="sheet-tip">چیدمان ذخیره‌شده‌ای برای این فضا وجود ندارد.</small>')+'</div>';
+   const doSave=(overwrite=false)=>{try{const label=$('#saveArrangementName')?.value||name||'چیدمان '+space;
+      const record={...currentSceneRecord(),name:label};
+      const result=overwrite?overwriteCustomLayout(activeSavedLayoutId,record):saveCustomLayout(record);
+      activeSavedLayoutId=result.id;toast('«'+result.name+'» ذخیره شد.');closeArSheet();
+    }catch(error){console.warn(error);toast('ذخیره انجام نشد؛ فضای حافظه مرورگر را بررسی کن.');}};
+   if($('#saveArrangementConfirm'))$('#saveArrangementConfirm').onclick=()=>doSave(false);
+   if($('#overwriteArrangement'))$('#overwriteArrangement').onclick=()=>doSave(true);
+   body.querySelectorAll('[data-open-ar-layout]').forEach(btn=>btn.onclick=()=>{
+     const data=listCustomLayouts().find(x=>x.id===btn.dataset.openArLayout);
+     if(!data)return;loadSceneRecord(data);studio.clear();studio.restoreState(data.scene);minimap.render();closeArSheet();toast('چیدمان در محیط AR باز شد.');
+   });
+   body.querySelectorAll('[data-remove-ar-layout]').forEach(btn=>btn.onclick=()=>{
+     if(activeSavedLayoutId===btn.dataset.removeArLayout)activeSavedLayoutId=null;
+     removeCustomLayout(btn.dataset.removeArLayout);closeArSheet();showArSheet(mode);
+   });
+  }else if(mode==='settings'){
   title.textContent='تنظیمات AR و جهت چیدمان';
   const details=$('#arSettings');details.hidden=false;details.open=true;body.append(details);
   const status=document.createElement('p');status.className='xr-status';status.textContent='عمق: '+(arReport?.depth||'نامشخص')+' · نور: '+(arReport?.light||'نامشخص');body.append(status);
@@ -311,6 +326,8 @@ function showArSheet(mode){
  }
  $('#arToolSheet').hidden=false;
 }
+$('#abLengthButton').onclick=()=>{const form=$('#abLengthForm');form.hidden=!form.hidden;if(!form.hidden){$('#abLengthInput').value=studio?.measurement().actualCm||Math.round(studio?.measurement().correctedCm||400);$('#abLengthInput').focus();}};
+$('#abLengthForm').onsubmit=event=>{event.preventDefault();try{studio?.calibrate($('#abLengthInput').value);$('#abLengthForm').hidden=true;toast('مقیاس A—B اصلاح شد.');}catch(error){toast(error.message);}};
 $('#arSheetClose').onclick=closeArSheet;
 $('#arAddTool').onclick=()=>showArSheet('add');
 $('#arMaterialTool').onclick=()=>showArSheet('colors');
@@ -321,7 +338,8 @@ $('#quickRotate').onclick=()=>studio?.rotate();
 $('#quickPower').onclick=()=>{if(!studio?.selected||!isLamp(studio.selected.userData.index))return;studio.setLampOn(!studio.selected.userData.lampOn);$('#quickPower').setAttribute('aria-pressed',String(studio.selected.userData.lampOn));};
 $('#quickDelete').onclick=()=>{studio?.remove();};
 $('#arListTool').onclick=()=>showArSheet('objects');
-$('#arSaveTool').onclick=()=>showArSheet('save');
+$('#arBottomSave').onclick=()=>showArSheet('save');
+$('#arBottomOpen').onclick=()=>showArSheet('saved');
 $('#arMoveLayoutTool').onclick=()=>{
  if(!studio||!studio.placed)return;
  closeArSheet();
@@ -365,7 +383,7 @@ function handleARReport(report){
  $('#confirmFloor').textContent=report.hit?'تثبیت کف و ورود به چیدمان':'در حال شناسایی کف…';
  $('#arEditControls').hidden=true;
  $('#arSettings').hidden=!(report.placed&&arSheetMode==='settings');
- $('#arDock').hidden=!report.placed;
+ $('#arDock').hidden=!report.placed;$('#arMiniMap').hidden=!report.placed;$('#arBottomActions').hidden=!report.placed;if(report.placed)minimap.render();else $('#abInline').hidden=true;
  $('#arDock').classList.toggle('ready',report.placed);
  $('#overlay').classList.toggle('floor-ready',report.placed);
  if(!report.placed){closeArSheet();$('#measureHint').hidden=true;}
@@ -380,7 +398,7 @@ function refreshDebugPanel(){
 function setDebug(enabled){
  debugEnabled=!!enabled;
  $('#arDebugPanel').hidden=!debugEnabled;
- $('#debugToggle').setAttribute('aria-pressed',String(debugEnabled));
+ 
  studio?.setDebugVisible(debugEnabled);
  if(debugEnabled)refreshDebugPanel();
 }
@@ -390,18 +408,18 @@ function saveDebugJSON(){
  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
  const url=URL.createObjectURL(blob);
  const a=document.createElement('a');a.href=url;
- a.download='tolica-ar-diagnostics-'+Date.now()+'.json';document.body.append(a);a.click();a.remove();
+ a.download='chido-ar-diagnostics-'+Date.now()+'.json';document.body.append(a);a.click();a.remove();
  setTimeout(()=>URL.revokeObjectURL(url),5000);
  toast('گزارش JSON ذخیره شد؛ آن را در گفتگو بفرست.');
 }
 function openGitHubDebugIssue(){
  if(!studio)return;
  const data=studio.debugExport(),last=studio.debugView.lastState;
- const body=['## TOLICA AR diagnostic report','Version: v0.3.4','Started: '+(data.startedAt||'unknown'),'','### Latest readout','```',studio.debugView.summary(),'```','','### Events','```',JSON.stringify(data.events.slice(-12),null,2),'```','','### Device test notes','(Describe whether the floor was above or below the carpet.)','','The full time-series log is available via the Save JSON button. Attach it manually if needed.'].join('\\n');
+ const body=['## CHIDO AR diagnostic report','Version: v0.3.4','Started: '+(data.startedAt||'unknown'),'','### Latest readout','```',studio.debugView.summary(),'```','','### Events','```',JSON.stringify(data.events.slice(-12),null,2),'```','','### Device test notes','(Describe whether the floor was above or below the carpet.)','','The full time-series log is available via the Save JSON button. Attach it manually if needed.'].join('\\n');
  const url='https://github.com/MaxLightner/tolica-ar/issues/new?title='+encodeURIComponent('AR floor detection debug report')+'&body='+encodeURIComponent(body);
  window.open(url,'_blank','noopener');
 }
-$('#debugToggle').onclick=()=>setDebug(!debugEnabled);
+
 $('#debugHide').onclick=()=>setDebug(false);
 $('#debugSave').onclick=saveDebugJSON;
 $('#debugGithub').onclick=openGitHubDebugIssue;
@@ -421,7 +439,7 @@ async function updateCameraLast(){
   clearCameraURLs();
   image.hidden=!latest;placeholder.hidden=!!latest;
   if(latest)image.src=cameraPhotoURL(latest.blob);else image.removeAttribute('src');
- }catch{cameraNotice('دسترسی به عکس‌های تولیکا ممکن نیست.');}
+ }catch{cameraNotice('دسترسی به عکس‌های چیدو ممکن نیست.');}
 }
 function cameraNotice(message){
  const el=$('#cameraNotice');el.textContent=message;el.hidden=false;
@@ -441,6 +459,9 @@ function setPhotoMode(enabled){
  $('#overlay').classList.toggle('photography',enabled);
  $('#cameraMode').hidden=!enabled;
  $('#objectQuick').hidden=true;
+ $('#arMiniMap').hidden=enabled||!studio.placed;
+ $('#arBottomActions').hidden=enabled||!studio.placed;
+ if(enabled)$('#abInline').hidden=true;
  if(enabled){updateCameraLast();setCameraRatio();}else{
   $('#cameraGallery').hidden=true;
   $('#cameraMode').classList.remove('gallery-open','capturing');
@@ -467,27 +488,27 @@ async function openCameraGallery(){
   if(!cameraActive||$('#cameraGallery').hidden)return;
   $('#cameraGalleryCount').textContent=fa(shots.length);
   if(!shots.length){
-   host.textContent='هنوز عکسی با شاتر تولیکا ثبت نشده است.';
+   host.textContent='هنوز عکسی با شاتر چیدو ثبت نشده است.';
    return;
   }
   for(const record of shots){
    const card=document.createElement('article');card.className='camera-shot-card';
-   const img=document.createElement('img');img.src=cameraPhotoURL(record.blob);img.alt='عکس تولیکا';
+   const img=document.createElement('img');img.src=cameraPhotoURL(record.blob);img.alt='عکس چیدو';
    const actions=document.createElement('div');actions.className='camera-shot-actions';
    const download=document.createElement('a');download.textContent='ذخیره در دستگاه';download.href=img.src;
    download.download='tolica-'+record.id+'.jpg';
    const del=document.createElement('button');del.textContent='حذف';del.onclick=async()=>{
-    if(!confirm('این عکس از گالری تولیکا حذف شود؟'))return;
+    if(!confirm('این عکس از گالری چیدو حذف شود؟'))return;
     await removePhoto(record.id);await updateCameraLast();await openCameraGallery();
    };
    actions.append(download,del);card.append(img,actions);host.append(card);
   }
- }catch{host.textContent='گالری تولیکا در این مرورگر در دسترس نیست.';}
+ }catch{host.textContent='گالری چیدو در این مرورگر در دسترس نیست.';}
 }
 $('#cameraImport').onchange=async e=>{
  const file=e.target.files?.[0];if(!file)return;
  if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>15*1024*1024){cameraNotice('فرمت یا حجم عکس مناسب نیست.');return;}
- try{await savePhoto(file,CAMERA_PHOTO_KIND);await updateCameraLast();$('#cameraFallback').hidden=true;cameraNotice('عکس در گالری خصوصی تولیکا ذخیره شد.');}
+ try{await savePhoto(file,CAMERA_PHOTO_KIND);await updateCameraLast();$('#cameraFallback').hidden=true;cameraNotice('عکس در گالری خصوصی چیدو ذخیره شد.');}
  catch{cameraNotice('ذخیره عکس ممکن نشد.');}
  finally{e.target.value='';}
 };
@@ -503,7 +524,7 @@ $('#cameraShutter').onclick=async()=>{
   await updateCameraLast();
   $('#cameraShutter').classList.add('flash');
   setTimeout(()=>$('#cameraShutter').classList.remove('flash'),240);
-  cameraNotice('کپچر داخلی با مبلمان در گالری تولیکا ذخیره شد.');
+  cameraNotice('کپچر داخلی با مبلمان در گالری چیدو ذخیره شد.');
  }catch(error){
   cameraNotice(error?.message||'کپچر داخلی عکس انجام نشد.');
   $('#cameraFallback').hidden=false;
@@ -522,7 +543,7 @@ $('#overlay').addEventListener('beforexrselect',event=>event.preventDefault());$
  if(studio?.session===running&&running)studio.endSession();
  $('#homeAR').disabled=false;
  location.hash='welcome';
-};$('#resetAR').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;$('#confirmFloor').hidden=false;$('#confirmFloor').disabled=true;$('#arEditControls').hidden=true;$('#arSettings').hidden=true;}catch(error){toast('اسکن دوباره اجرا نشد.');}};$('#leaveAR').onclick=async()=>{try{await studio?.session?.end();}catch{toast('دکمهٔ بازگشت گوشی را بزن.');}};$('#confirmFloor').onclick=()=>studio?.confirmFloor();$('#rescanFloor').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;}catch(error){toast('اسکن دوباره راه‌اندازی نشد؛ از AR خارج شو و دوباره وارد شو.');}};
+};$('#resetAR').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;$('#confirmFloor').hidden=false;$('#confirmFloor').disabled=true;$('#arEditControls').hidden=true;$('#arSettings').hidden=true;}catch(error){toast('اسکن دوباره اجرا نشد.');}};$('#confirmFloor').onclick=()=>studio?.confirmFloor();$('#rescanFloor').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;}catch(error){toast('اسکن دوباره راه‌اندازی نشد؛ از AR خارج شو و دوباره وارد شو.');}};
 $('#rotateAR').onclick=()=>{if(studio?.selected)studio.rotate();};$('#deleteAR').onclick=()=>studio?.remove();$('#colorAR').onclick=()=>{if(studio?.selected){const current='#'+studio.selected.material.color.getHexString();studio.color(palette[(palette.indexOf(current)+1)%palette.length]);}};$('#addAR').onclick=()=>{if(studio.items.length>=16){toast('حد آزمون این نسخه ۱۶ قطعه است.');return;}studio.add(Number($('#arProduct').value));};$('#closePhoto').onclick=()=>$('#photoHelp').close();
 async function updateCount(){try{$('#galleryCount').textContent=fa((await photos()).length);}catch{$('#galleryCount').textContent='—';}}
 async function showModes(){$('#modeSheet').showModal();await support();$('#modeSupport').textContent=supported?'AR در مرورگر شما در دسترس است؛ مجوز دوربین هنگام شروع پرسیده می‌شود.':'AR در این دستگاه در دسترس نیست؛ مدل ساده را امتحان کنید.';$('#chooseAR').disabled=!supported;}
