@@ -147,3 +147,22 @@ test('photo preview covers the viewport and gallery fake action is explicit',()=
  assert.ok(app.includes('data-realistic-demo'));
  assert.ok(app.includes('پردازشی انجام نمی‌شود'));
 });
+
+test('CHIDO navigation waits for WebXR end and keeps the page open',()=>{
+ const app=read('app.js'),studio=read('studio.js'),html=read('index.html');
+ for(const id of ['homeAR','chidoMenuContinue','chidoMenuSaved','chidoMenuSave','chidoMenuHome'])
+  assert.ok(html.includes('id="'+id+'"'),id);
+ assert.match(app,/\$\('#homeAR'\)\.onclick=toggleChidoMenu/);
+ assert.match(app,/\$\('#chidoMenuContinue'\)\.onclick=closeChidoMenu/);
+ assert.match(app,/\$\('#chidoMenuSaved'\)\.onclick=\(\)=>/);
+ assert.match(app,/\$\('#chidoMenuSave'\)\.onclick=\(\)=>/);
+ assert.match(app,/\$\('#chidoMenuHome'\)\.onclick=async/);
+ assert.ok(app.includes('homeExitRequested'));
+ assert.ok(app.includes('queueMicrotask(finishChidoHomeExit)'));
+ assert.ok(app.includes("history.replaceState(null,'',location.pathname+location.search+'#welcome')"));
+ assert.ok(app.includes("try{previous.destroy();}catch(error)"));
+ assert.ok(app.includes("if(homeExitBusy)return"));
+ assert.doesNotMatch(app,/window\.close\(|location\.reload\(/);
+ assert.ok(studio.includes("if(this.session===session)this.endSession()"));
+ assert.ok(studio.includes("endSession(){if(!this.session)return"));
+});
