@@ -440,3 +440,5 @@
 .ar-save-list-row button{font-size:11px;padding:8px}
 .ar-save-list-row strong{flex:1;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis}
 @media(max-height:590px){#overlay.floor-ready .ar-dock{top:54%;max-height:61svh}#overlay.floor-ready .ar-dock button{min-height:41px}.ar-minimap{width:130px}.ar-minimap.expanded{top:55px}}
+
+#overlay.photography #arBottomActions,#overlay.photography .ar-bottom.compact{display:none!important}

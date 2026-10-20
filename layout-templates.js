@@ -60,8 +60,8 @@ function seatingPositions(kind,n){
 function makeLiving(kind,capacity){
  const seats=livingSeats(capacity),points=seatingPositions(kind,seats.length);
  // A shared carpet gives the group an intentional visual centre.
- const result=[item(7,vec(0,-1.65),{size:[3.2,.015,2.1]})];
- result.push(...seats.map((count,i)=>sofa(count,points[i])));
+ const result=seats.map((count,i)=>sofa(count,points[i]));
+ result.push(item(7,vec(0,-1.65),{size:[3.2,.015,2.1]}));
  result.push(item(kind==='l'?13:2,vec(kind==='l'?.22:0,-1.65)));
  // Side table and floor lamp are positioned outside walking and seating footprints.
  result.push(item(12,vec(kind==='l'?-2.35:-1.55,-3.0)));

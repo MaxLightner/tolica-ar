@@ -10,8 +10,8 @@ export class LiveMiniMap {
    panel.querySelector('[data-map-expand]').textContent=this.expanded?'کوچک کردن':'بزرگ کردن';
    this.render();
   };
-  panel.querySelector('[data-map-left]').onclick=()=>getStudio()?.rotate(-15);
-  panel.querySelector('[data-map-right]').onclick=()=>getStudio()?.rotate(15);
+  panel.querySelector('[data-map-left]').onclick=()=>{const s=getStudio();if(s?.selected)s.rotate(s.selected.rotation.y*180/Math.PI-15);};
+  panel.querySelector('[data-map-right]').onclick=()=>{const s=getStudio();if(s?.selected)s.rotate(s.selected.rotation.y*180/Math.PI+15);};
   this.svg.addEventListener('pointerdown',event=>this.start(event));
   this.svg.addEventListener('pointermove',event=>this.move(event));
   for(const name of ['pointerup','pointercancel','lostpointercapture'])
