@@ -447,6 +447,7 @@ function setPhotoMode(enabled){
  cameraActive=!!enabled;
  if($('#cameraFallback'))$('#cameraFallback').hidden=true;
  if(enabled){
+  minimap.collapse();
   closeArSheet();
   $('#cameraGallery').hidden=true;
   $('#cameraMode').classList.remove('gallery-open','capturing');
@@ -546,7 +547,7 @@ function toggleChidoMenu(){
  chidoMenuOpen=!chidoMenuOpen;
  $('#chidoMenuSheet').hidden=!chidoMenuOpen;
  $('#homeAR').setAttribute('aria-expanded',String(chidoMenuOpen));
- if(chidoMenuOpen){closeArSheet();$('#objectQuick').hidden=true;}
+ if(chidoMenuOpen){minimap.collapse();closeArSheet();$('#objectQuick').hidden=true;}
 }
 $('#overlay').addEventListener('beforexrselect',event=>event.preventDefault());
 $('#homeAR').onclick=toggleChidoMenu;
