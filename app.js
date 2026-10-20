@@ -1,16 +1,17 @@
-import {explainXR} from './xr.js?v=0.5.1';
+import {explainXR} from './xr.js?v=0.5.2';
 import {photos,savePhoto,removePhoto} from './storage.js';
-import {CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto} from './camera-capture.js?v=0.5.1';
-import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.5.1';
-import {allowedCapacities,layoutOptions,buildLayout,layoutSummary,layoutPreviewSvg} from './layout-templates.js?v=0.5.1';
-import {readDraft,saveDraft,clearDraft,listCustomLayouts,saveCustomLayout,overwriteCustomLayout,removeCustomLayout} from './layout-storage.js?v=0.5.1';
-import {ASSET_CATEGORIES,RUG_SIZE_PRESETS,isLamp,isSofa,isTable,isWallArt,variantsFor,categoryForIndex} from './asset-metadata.js?v=0.5.1';
-import {savedPlanSvg} from './saved-plan.js?v=0.5.1';
-import {LiveMiniMap} from './minimap.js?v=0.5.1';
-import {CUSHION_PRESETS} from './sofa-cushions.js?v=0.5.1';
+import {CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto,effectiveCameraRatio} from './camera-capture.js?v=0.5.2';
+import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.5.2';
+import {allowedCapacities,layoutOptions,buildLayout,layoutSummary,layoutPreviewSvg} from './layout-templates.js?v=0.5.2';
+import {readDraft,saveDraft,clearDraft,listCustomLayouts,saveCustomLayout,overwriteCustomLayout,removeCustomLayout} from './layout-storage.js?v=0.5.2';
+import {ASSET_CATEGORIES,RUG_SIZE_PRESETS,isLamp,isSofa,isTable,isWallArt,variantsFor,categoryForIndex} from './asset-metadata.js?v=0.5.2';
+import {savedPlanSvg} from './saved-plan.js?v=0.5.2';
+import {LiveMiniMap} from './minimap.js?v=0.5.2';
+import {CUSHION_PRESETS} from './sofa-cushions.js?v=0.5.2';
 const $=s=>document.querySelector(s),app=$('#app'),fa=n=>n.toLocaleString('fa-IR');
 let studio,Scene,palette,space='پذیرایی',layout='conversation',supported=false,routeVersion=0,photoURLs=[],savedItems=[],arReport=null,sceneMemory=null,arStarting=false,lastXRErrorReport='',activeSavedLayoutId=null;
 const minimap=new LiveMiniMap($('#arMiniMap'),()=>studio);
+let chidoMenuOpen=false;
 const themes=[
  {name:'کرم و چوب',colors:['#cfbeaa','#c9bdae','#aa9882','#d7c8b4']},
  {name:'آبی و کرم',colors:['#7a9196','#d7c5b2','#879fa2','#c3b7a9']},
@@ -63,12 +64,12 @@ const sketches={
 function svg(kind='living'){return `<svg viewBox="0 0 330 300" class="sketch" aria-hidden="true">${sketches[kind]||sketches.living}</svg>`;}
 function heroArt(){return `<svg viewBox="0 0 600 520" class="sketch" aria-hidden="true"><g stroke="#c4c8b8" stroke-width=".8"><path d="M60 380l260 86 236-106-234-85zM60 380V133l262-67 234 68v226M322 66v209M77 374l245 79 218-98"/><path d="M91 153l119-30v119L91 272zM151 138v118m-60-48 119-34"/></g><g transform="translate(57 110)"><path d="M73 215v-81q0-18 18-16l157 19q19 2 19 18v78M73 157l-35-5q-13-2-13 14v73l244 43 94-45v-68q0-12-11-9l-36 16M25 194l242 39 96-44M44 198v25l222 39 76-36v-28M267 233v49M52 244v23m194 12v22m95-54v21M75 164l190 30 48-18M171 133v45"/><path stroke="#9aa18d" d="M26 191l241 38 94-44m-286-25 189 30 45-17"/></g><path d="M328 389l76-33 75 23-77 36zM328 389v12l74 28 77-35v-15M338 403v25m126-26v25M401 429v14"/><path d="M443 286v-109m-35 0h70l-17-55h-39zM427 293l17-7 18 7M443 122v-12"/><path d="M499 332v-49m-17 41q-30-8-26-34 27-3 43 33m1-18q-3-30 21-41 18 24-21 41M481 331h38l-6 38h-25z"/><path stroke="#c2c6b7" d="m100 411 218 66 210-96M90 422l227 69m49-31 143-64"/><path stroke="#9da58f" d="M281 77l10 10m-15 4 11-2M75 310l-15 7m13-16-4 12"/></svg>`;}
 function toast(message){$('#toast').textContent=message;$('#toast').style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').style.display='none',4500);}
-function footer(){return `<footer class="foot"><span>خانه، به سلیقهٔ تو.</span><span dir="ltr">CHIDO · 0.5.0</span></footer>`;}
+function footer(){return `<footer class="foot"><span>خانه، به سلیقهٔ تو.</span><span dir="ltr">CHIDO · 0.5.2</span></footer>`;}
 function heading(step,title,sub,back){return `<div class="page-heading"><div><span class="eyebrow">${step}</span><h1>${title}</h1><p>${sub}</p></div>${back?`<a class="back" href="#${back}">بازگشت ←</a>`:''}</div>`;}
 async function full(){if(document.fullscreenElement){await document.exitFullscreen();return;}if(!document.documentElement.requestFullscreen){toast('مرورگر شما تمام‌صفحه را پشتیبانی نمی‌کند.');return;}try{await document.documentElement.requestFullscreen();}catch{toast('ورود به تمام‌صفحه ممکن نشد؛ می‌توانی ادامه بدهی.');}}
 $('#fullscreen').onclick=full;document.addEventListener('fullscreenchange',()=>$('#fullscreen').textContent=document.fullscreenElement?'خروج از تمام‌صفحه ↙':'تمام‌صفحه ⛶');
 async function support(){try{supported=!!(isSecureContext&&navigator.xr&&await navigator.xr.isSessionSupported('immersive-ar'));}catch{supported=false;}return supported;}
-async function loadScene(){if(!Scene){const m=await import('./scene.js?v=0.5.1');Scene=m.Studio;palette=m.palette;}}
+async function loadScene(){if(!Scene){const m=await import('./scene.js?v=0.5.2');Scene=m.Studio;palette=m.palette;}}
 let draftTimer=null;
 function currentSceneRecord(){
  if(!studio)return null;
@@ -101,7 +102,7 @@ function bindCalibration(prefix=''){const initial=studio.measurement();if(initia
 function snapshotItems(){savedItems=studio?studio.items.map(m=>({id:m.userData.id,name:m.userData.product.name,price:m.userData.price,color:'#'+m.material.color.getHexString()})):savedItems;}
 function uploadControl(){return `<label class="upload">بارگذاری تصویر +<input id="upload" type="file" accept="image/png,image/jpeg,image/webp" multiple></label>`;}
 async function uploadFiles(e){const files=[...e.target.files];if(files.length>20){toast('هر بار حداکثر ۲۰ تصویر بارگذاری کن.');return;}let count=0;for(const f of files){if(!['image/png','image/jpeg','image/webp'].includes(f.type)||f.size>15*1024*1024){toast('فقط PNG، JPEG و WebP تا ۱۵ مگابایت پذیرفته می‌شود.');continue;}try{const img=await createImageBitmap(f);img.close();await savePhoto(f,'تصویر بارگذاری‌شده');count++;}catch{toast('تصویر خوانده یا ذخیره نشد؛ فضای مرورگر را بررسی کن.');}}if(count){toast(`${fa(count)} تصویر به گالری اضافه شد.`);await render();}e.target.value='';}
-async function render(){const version=++routeVersion;const route=location.hash.slice(1)||'welcome';document.body.dataset.route=route;if(studio?.session){location.hash='studio';return;}if(studio){persistDraft();snapshotItems();sceneMemory=studio.exportState();studio.destroy();studio=null;}photoURLs.forEach(URL.revokeObjectURL);photoURLs=[];
+async function render(){const version=++routeVersion;const route=location.hash.slice(1)||'welcome';document.body.dataset.route=route;if(studio?.session){location.hash='studio';return;}closeChidoMenu();minimap.collapse();if(studio){persistDraft();snapshotItems();sceneMemory=studio.exportState();studio.destroy();studio=null;}photoURLs.forEach(URL.revokeObjectURL);photoURLs=[];
  if(route==='welcome'){app.innerHTML=`<section class="welcome-screen"><div class="welcome-title"><h1>CHIDO</h1><p>خانه را جور دیگری ببینید</p></div><img class="welcome-photo" src="assets/welcome.png" alt="صندلی کرم و گلدان در فضایی آرام"><div class="welcome-bottom"><button class="primary" id="welcome">ورود به نمایشگاه <span>→</span></button><button class="quick-ar" id="quickAR">ورود سریع به AR ↗</button><span class="welcome-wordmark">CHIDO</span></div></section>`;$('#welcome').onclick=()=>{full();location.hash='spaces';};const draft=readDraft();if(draft)$('#quickAR').textContent='ادامه چیدمان قبلی ↗';$('#quickAR').onclick=()=>{if(draft)loadSceneRecord(draft);else {layout='conversation';sceneMemory=null;}location.hash='studio';};return;}
  if(route==='spaces'){app.innerHTML=`<section class="page rooms-page">${heading('۰۱ / فضای شما','کدام فضا را می‌خواهی بچینی؟','فضا، سبک و رنگ دلخواهت را انتخاب کن.','welcome')}
  <div class="cards room-choice">${[['living','پذیرایی','برای کنار هم بودن'],['dining','ناهارخوری','دور یک میز، کنار هم'],['dining','آشپزخانه','میز غذاخوری و دورهمی'],['bedroom','اتاق خواب','گوشه‌ای برای آرامش'],['office','فضای کار','جایی برای ایده‌های تازه']].map(([key,title,sub])=>`<button class="card ${space===title?'selected':''}" data-space="${title}" aria-pressed="${space===title}">${svg(key)}<strong>${title}</strong><small>${sub}</small></button>`).join('')}</div>
@@ -160,7 +161,7 @@ async function render(){const version=++routeVersion;const route=location.hash.s
   await loadScene();if(version!==routeVersion)return;
   studio=new Scene($('#viewport'),updateObjects);
   if(sceneMemory)studio.restoreState(sceneMemory);else{studio.seed(layout,space,peopleCount);const colors=themes[themeIndex].colors;studio.items.forEach((m,i)=>{if(m.userData.index!==7)m.material.color.set(colors[i%colors.length]);});}
-  studio.onEnd=()=>{setPhotoMode(false);closeArSheet();$('#arDock').hidden=true;$('#objectQuick').hidden=true;$('#scanReadiness').hidden=true;$('#measureHint').hidden=true;$('#arMiniMap').hidden=true;$('#abInline').hidden=true;$('#arBottomActions').hidden=true;};
+  studio.onEnd=()=>{closeChidoMenu();minimap.collapse();setPhotoMode(false);closeArSheet();$('#arDock').hidden=true;$('#objectQuick').hidden=true;$('#scanReadiness').hidden=true;$('#measureHint').hidden=true;$('#arMiniMap').hidden=true;$('#abInline').hidden=true;$('#arBottomActions').hidden=true;};
   studio.onPhotoTap=()=>{};
   studio.onHint=toast;
    studio.onLiveChange=()=>minimap.render();
@@ -183,7 +184,7 @@ async function render(){const version=++routeVersion;const route=location.hash.s
  await support();if(version!==routeVersion)return;
  $('#startAR').textContent=supported?'شروع اسکن کف و ورود به AR ↗':'بررسی دسترسی به AR';
  $('#startAR').disabled=false;$('#startAR').onclick=()=>startAR(false);return;}
- if(route==='gallery'){app.innerHTML=`<section class="page">${heading('گالری شخصی','قاب‌هایی از خانهٔ تو','ایده‌هایی که دوست داری، اینجا نگه دار.','welcome')}<div class="no-print">${uploadControl()}</div><div class="notice">تصاویر فقط در همین مرورگر و همین نشانی، روی دستگاه تو ذخیره می‌شوند. با پاک کردن داده‌های سایت حذف می‌شوند؛ تصویرهای مهم را دانلود کن.</div><div id="images" class="images"></div></section>${footer()}`;$('#upload').onchange=uploadFiles;try{const list=(await photos()).sort((a,b)=>b.date-a.date);if(version!==routeVersion)return;if(!list.length){$('#images').className='empty-gallery';$('#images').innerHTML=`${svg('gallery')}<h2>اولین قاب، منتظر توست.</h2><p>از محیط AR کپچر داخلی بگیر یا تصویر دلخواهت را بارگذاری کن.</p><a href="#spaces" class="back">شروع یک چیدمان ←</a>`;}else for(const p of list){const url=URL.createObjectURL(p.blob);photoURLs.push(url);const el=document.createElement('article');el.className='image-card';el.innerHTML=`<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="تصویر ذخیره‌شدهٔ چیدمان"></a><p>${p.kind}<br>${new Date(p.date).toLocaleString('fa-IR')}</p><a href="${url}" download="chido-${p.id}.png">دانلود ↓</a><button>حذف</button>`;el.querySelector('button').onclick=async()=>{try{await removePhoto(p.id);render();}catch{toast('حذف تصویر انجام نشد.');}};$('#images').append(el);}}catch{$('#images').textContent='دسترسی به گالری ممکن نیست؛ ذخیره‌سازی مرورگر را فعال کن.';}updateCount();return;}
+ if(route==='gallery'){app.innerHTML=`<section class="page">${heading('گالری شخصی','قاب‌هایی از خانهٔ تو','ایده‌هایی که دوست داری، اینجا نگه دار.','welcome')}<div class="no-print">${uploadControl()}<button class="gallery-realistic-preview" type="button" data-realistic-demo>رئالیستیک کردن عکس <small>به‌زودی</small></button></div><div class="notice">تصاویر فقط در همین مرورگر و همین نشانی، روی دستگاه تو ذخیره می‌شوند. با پاک کردن داده‌های سایت حذف می‌شوند؛ تصویرهای مهم را دانلود کن.</div><div id="images" class="images"></div></section>${footer()}`;$('#upload').onchange=uploadFiles;try{const list=(await photos()).sort((a,b)=>b.date-a.date);if(version!==routeVersion)return;if(!list.length){$('#images').className='empty-gallery';$('#images').innerHTML=`${svg('gallery')}<h2>اولین قاب، منتظر توست.</h2><p>از محیط AR کپچر داخلی بگیر یا تصویر دلخواهت را بارگذاری کن.</p><a href="#spaces" class="back">شروع یک چیدمان ←</a>`;}else for(const p of list){const url=URL.createObjectURL(p.blob);photoURLs.push(url);const el=document.createElement('article');el.className='image-card';el.innerHTML=`<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="تصویر ذخیره‌شدهٔ چیدمان"></a><p>${p.kind}<br>${new Date(p.date).toLocaleString('fa-IR')}</p><a href="${url}" download="chido-${p.id}.png">دانلود ↓</a><button type="button" class="gallery-realistic-preview" data-realistic-demo>رئالیستیک کردن <small>آزمایشی</small></button><button data-photo-delete>حذف</button>`;el.querySelector('[data-photo-delete]').onclick=async()=>{try{await removePhoto(p.id);render();}catch{toast('حذف تصویر انجام نشد.');}};$('#images').append(el);}document.querySelectorAll('[data-realistic-demo]').forEach(b=>b.onclick=()=>toast('رئالیستیک کردن تصویر فعلاً نمایشی است؛ پردازشی انجام نمی‌شود.'));}catch{$('#images').textContent='دسترسی به گالری ممکن نیست؛ ذخیره‌سازی مرورگر را فعال کن.';}updateCount();return;}
  if(route==='invoice'){const total=savedItems.reduce((s,m)=>s+m.price,0);app.innerHTML=`<section class="page">${heading('برآورد اولیه','پیش‌فاکتور آزمایشی','فقط برای بررسی تجربهٔ انتخاب؛ فاقد اعتبار خرید.','studio')}<div class="invoice"><div class="page-heading"><a class="brand" href="#welcome">CHIDO</a><span class="step">${new Date().toLocaleDateString('fa-IR')}<br>واحد: تومان</span></div><table><thead><tr><th>حجم نمونه</th><th>رنگ</th><th>تعداد</th><th>مبلغ فرضی</th></tr></thead><tbody>${savedItems.map(m=>`<tr><td>${m.name||'قطعه'} ${fa(m.id)}</td><td><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${m.color}"></span></td><td>۱</td><td>${fa(m.price)}</td></tr>`).join('')||'<tr><td colspan="4">هنوز باکسی انتخاب نشده است.</td></tr>'}</tbody><tfoot><tr><td colspan="3">جمع آزمایشی</td><td>${fa(total)} تومان</td></tr></tfoot></table><p>قیمت‌ها کاملاً فرضی‌اند. مالیات، ارسال و خدمات محاسبه نشده است. این صفحه سفارش یا پرداخت ایجاد نمی‌کند.</p></div><button id="print" class="primary no-print" style="margin-top:20px">چاپ / دریافت PDF</button></section>${footer()}`;$('#print').onclick=()=>window.print();return;}
  location.hash='welcome';
 }
@@ -300,10 +301,10 @@ function showArSheet(mode){
   const details=$('#arSettings');details.hidden=false;details.open=true;body.append(details);
   const status=document.createElement('p');status.className='xr-status';status.textContent='عمق: '+(arReport?.depth||'نامشخص')+' · نور: '+(arReport?.light||'نامشخص');body.append(status);
   const directions=document.createElement('div');directions.className='feature-options';
-  directions.innerHTML='<button id="layoutTurnLeft">↺ چرخش کل ست ۱۵°</button><button id="layoutTurnRight">چرخش کل ست ۱۵° ↻</button>';
+  directions.innerHTML='<button id="layoutTurnLeft">↺ چرخش کل ست ۴۵°</button><button id="layoutTurnRight">چرخش کل ست ۴۵° ↻</button>';
   body.append(directions);
-  $('#layoutTurnLeft').onclick=()=>studio.rotateLayout(-15);
-  $('#layoutTurnRight').onclick=()=>studio.rotateLayout(15);
+  $('#layoutTurnLeft').onclick=()=>studio.rotateLayout(-45);
+  $('#layoutTurnRight').onclick=()=>studio.rotateLayout(45);
   const note=document.createElement('small');note.className='sheet-tip';
   note.textContent='A—B فقط مرجع سنجش و کالیبراسیون است. برای جابه‌جایی کل ست دکمه مستقل «جابه‌جایی» را فعال کن؛ جهت کل ست را با دکمه‌های بالا تنظیم کن.';
   body.append(note);
@@ -466,11 +467,15 @@ function setPhotoMode(enabled){
  }
 }
 function setCameraRatio(){
- const ratio=CAMERA_RATIOS[$('#cameraRatio').value]||4/3;
- $('#cameraFraming').style.aspectRatio=ratio;
+ const selected=effectiveCameraRatio($('#cameraRatio').value,window.innerWidth,window.innerHeight);
+ const ratio=CAMERA_RATIOS[selected]||4/3;
  $('#cameraFraming').style.setProperty('--frame-ratio',String(ratio));
+ $('#cameraFraming').style.setProperty('--frame-inverse-ratio',String(1/ratio));
+ $('#cameraRatio').setAttribute('aria-label','نسبت تصویر عکس · '+selected);
+ const effective=$('#cameraRatioEffective');if(effective)effective.textContent='خروجی: '+selected;
 }
 $('#cameraRatio').onchange=setCameraRatio;
+window.addEventListener('resize',()=>{if(cameraActive)setCameraRatio();});
 $('#cameraClose').onclick=()=>setPhotoMode(false);
 $('#cameraGalleryBack').onclick=()=>{
  $('#cameraGallery').hidden=true;$('#cameraMode').classList.remove('gallery-open');
@@ -493,12 +498,12 @@ async function openCameraGallery(){
    const img=document.createElement('img');img.src=cameraPhotoURL(record.blob);img.alt='عکس چیدو';
    const actions=document.createElement('div');actions.className='camera-shot-actions';
    const download=document.createElement('a');download.textContent='ذخیره در دستگاه';download.href=img.src;
-   download.download='tolica-'+record.id+'.jpg';
+   download.download='chido-'+record.id+'.jpg';
    const del=document.createElement('button');del.textContent='حذف';del.onclick=async()=>{
     if(!confirm('این عکس از گالری چیدو حذف شود؟'))return;
     await removePhoto(record.id);await updateCameraLast();await openCameraGallery();
    };
-   actions.append(download,del);card.append(img,actions);host.append(card);
+   const demo=document.createElement('button');demo.type='button';demo.className='gallery-realistic-preview';demo.textContent='رئالیستیک کردن · به‌زودی';demo.onclick=()=>toast('این دکمه فعلاً نمایشی است؛ پردازش تصویر انجام نمی‌شود.');actions.append(download,demo,del);card.append(img,actions);host.append(card);
   }
  }catch{host.textContent='گالری چیدو در این مرورگر در دسترس نیست.';}
 }
@@ -515,7 +520,7 @@ $('#cameraShutter').onclick=async()=>{
  try{
   // WebXR Raw Camera Access: compose the camera frame with actual rendered furniture.
   // No display capture, screen-share prompt or OS screenshot is used.
-  const blob=await studio.capturePhoto($('#cameraRatio').value);
+  const blob=await studio.capturePhoto(effectiveCameraRatio($('#cameraRatio').value,window.innerWidth,window.innerHeight));
   if(!cameraActive)return;
   await savePhoto(blob,CAMERA_PHOTO_KIND);
   await updateCameraLast();
@@ -531,15 +536,33 @@ $('#cameraShutter').onclick=async()=>{
  }
 };
 $('#closeARError').onclick=()=>$('#arError').close();$('#basicAR').onclick=()=>startAR(true);$('#copyARError').onclick=async()=>{try{await navigator.clipboard.writeText(lastXRErrorReport);toast('گزارش کپی شد.');}catch{toast('از جزئیات خطا عکس بگیر.');}};
-$('#overlay').addEventListener('beforexrselect',event=>event.preventDefault());$('#homeAR').onclick=async()=>{
+function closeChidoMenu(){
+ chidoMenuOpen=false;
+ $('#chidoMenuSheet').hidden=true;
+ $('#homeAR').setAttribute('aria-expanded','false');
+}
+function toggleChidoMenu(){
+ if(!studio?.session)return;
+ chidoMenuOpen=!chidoMenuOpen;
+ $('#chidoMenuSheet').hidden=!chidoMenuOpen;
+ $('#homeAR').setAttribute('aria-expanded',String(chidoMenuOpen));
+ if(chidoMenuOpen){closeArSheet();$('#objectQuick').hidden=true;}
+}
+$('#overlay').addEventListener('beforexrselect',event=>event.preventDefault());
+$('#homeAR').onclick=toggleChidoMenu;
+$('#chidoMenuContinue').onclick=closeChidoMenu;
+$('#chidoMenuSaved').onclick=()=>{closeChidoMenu();if(!studio?.placed){toast('ابتدا کف را تثبیت کن.');return;}showArSheet('saved');};
+$('#chidoMenuSave').onclick=()=>{closeChidoMenu();if(!studio?.placed){toast('ابتدا کف را تثبیت کن.');return;}showArSheet('save');};
+$('#chidoMenuHome').onclick=async()=>{
  if(!studio)return;
  persistDraft();sceneMemory=studio.exportState();
- const running=studio.session;
- $('#homeAR').disabled=true;
+ closeChidoMenu();
+ const running=studio.session,button=$('#chidoMenuHome');
+ button.disabled=true;
  try{if(running)await running.end();}catch(error){console.warn('XR end request',error);}
  if(studio?.session===running&&running)studio.endSession();
- $('#homeAR').disabled=false;
- location.hash='welcome';
+ button.disabled=false;
+ if(location.hash==='#welcome')render();else location.hash='welcome';
 };$('#resetAR').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;$('#confirmFloor').hidden=false;$('#confirmFloor').disabled=true;$('#arEditControls').hidden=true;$('#arSettings').hidden=true;}catch(error){toast('اسکن دوباره اجرا نشد.');}};$('#confirmFloor').onclick=()=>studio?.confirmFloor();$('#rescanFloor').onclick=async()=>{try{await studio?.beginScan();$('#arSettings').open=false;}catch(error){toast('اسکن دوباره راه‌اندازی نشد؛ از AR خارج شو و دوباره وارد شو.');}};
 $('#rotateAR').onclick=()=>{if(studio?.selected)studio.rotate();};$('#deleteAR').onclick=()=>studio?.remove();$('#colorAR').onclick=()=>{if(studio?.selected){const current='#'+studio.selected.material.color.getHexString();studio.color(palette[(palette.indexOf(current)+1)%palette.length]);}};$('#addAR').onclick=()=>{if(studio.items.length>=16){toast('حد آزمون این نسخه ۱۶ قطعه است.');return;}studio.add(Number($('#arProduct').value));};$('#closePhoto').onclick=()=>$('#photoHelp').close();
 async function updateCount(){try{$('#galleryCount').textContent=fa((await photos()).length);}catch{$('#galleryCount').textContent='—';}}

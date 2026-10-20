@@ -9,3 +9,16 @@ export function cropRect(width,height,ratio){
 export const CAMERA_PHOTO_KIND='tolica-camera';
 export const isCameraPhoto=photo=>photo?.kind===CAMERA_PHOTO_KIND;
 export const CAMERA_RATIOS=Object.freeze({'9:16':9/16,'3:4':3/4,'1:1':1,'4:3':4/3,'16:9':16/9});
+
+/** Match a selected photo ratio to the physical orientation of the viewport.
+ * A portrait tablet gets 9:16 from the 16:9 option and 3:4 from 4:3.
+ * The image is still center-cropped at the chosen output ratio.
+ */
+export function effectiveCameraRatio(choice,width,height){
+ const allowed=Object.hasOwn(CAMERA_RATIOS,choice)?choice:'4:3';
+ if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)return allowed;
+ if(width===height)return allowed;
+ const [w,h]=allowed.split(':').map(Number);
+ if((width<height&&w>h)||(width>height&&w<h))return h+':'+w;
+ return allowed;
+}

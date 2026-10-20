@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cropRect,CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto} from '../camera-capture.js';
+import {cropRect,CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto,effectiveCameraRatio} from '../camera-capture.js';
 import {InternalCaptureUnavailable,canCaptureCamera,rowsTopDown,captureInternalAR,readCameraPixels} from '../internal-camera-capture.js';
 
 test('internal-camera ratios and private photo gallery',()=>{
@@ -56,4 +56,16 @@ test('driver zeroed frames are rejected rather than saved as photographs',()=>{
  };
  assert.throws(()=>readCameraPixels({getContext:()=>gl,resetState:()=>resets++},{getCameraImage:()=>({})},{camera:{width:16,height:16}}),InternalCaptureUnavailable);
  assert.equal(bound,'main');assert.equal(deleted,1);assert.equal(resets,1);
+});
+
+test('capture format follows portrait and landscape orientation on phones and tablets',()=>{
+ assert.equal(effectiveCameraRatio('16:9',800,1200),'9:16');
+ assert.equal(effectiveCameraRatio('4:3',800,1200),'3:4');
+ assert.equal(effectiveCameraRatio('3:4',800,1200),'3:4');
+ assert.equal(effectiveCameraRatio('9:16',800,1200),'9:16');
+ assert.equal(effectiveCameraRatio('3:4',1600,900),'4:3');
+ assert.equal(effectiveCameraRatio('9:16',1600,900),'16:9');
+ assert.equal(effectiveCameraRatio('1:1',800,1200),'1:1');
+ assert.equal(effectiveCameraRatio('INVALID',800,1200),'3:4');
+ assert.equal(effectiveCameraRatio('16:9',0,0),'16:9');
 });

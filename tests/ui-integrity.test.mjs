@@ -119,3 +119,31 @@ test('expanded map can be collapsed from bottom right and rotates objects',()=>{
  assert.ok(css.includes('.ar-minimap.expanded .map-title [data-map-expand]'));
  assert.ok(css.includes('right:12px;bottom:10px'));
 });
+
+test('the CHIDO top menu opens in XR without immediately ending WebXR',()=>{
+ const app=read('app.js'),html=read('index.html');
+ for(const id of ['chidoMenuSheet','chidoMenuContinue','chidoMenuSaved','chidoMenuSave','chidoMenuHome'])assert.ok(html.includes('id="'+id+'"'),id);
+ assert.match(app,/\$\('#homeAR'\)\.onclick=toggleChidoMenu/);
+ assert.match(app,/function toggleChidoMenu\(\)/);
+ assert.match(app,/\$\('#chidoMenuHome'\)\.onclick=async/);
+});
+test('map expansion overrides its compact width and 45-degree rotation applies consistently',()=>{
+ const css=read('style.css'),map=read('minimap.js'),studio=read('studio.js'),html=read('index.html');
+ assert.match(css,/#overlay \.ar-minimap\.expanded\{/);
+ assert.match(css,/width:calc\(100% - 18px\)!important/);
+ assert.match(css,/min-height:0!important/);
+ assert.ok(map.includes('setExpanded(value)'));
+ assert.ok(map.includes('collapse()'));
+ assert.ok(map.includes('/Math.PI-45'));
+ assert.ok(map.includes('/Math.PI+45'));
+ assert.ok(studio.includes('mesh.rotation.y+Math.PI/4'));
+ assert.ok(html.includes('چرخش ۴۵ درجه'));
+});
+test('photo preview covers the viewport and gallery fake action is explicit',()=>{
+ const css=read('style.css'),app=read('app.js');
+ assert.match(css,/width:max\(100vw,calc\(100dvh \* var\(--frame-ratio\)\)\)!important/);
+ assert.ok(app.includes("effectiveCameraRatio($('#cameraRatio').value,window.innerWidth,window.innerHeight)"));
+ assert.ok(app.includes('--frame-inverse-ratio'));
+ assert.ok(app.includes('data-realistic-demo'));
+ assert.ok(app.includes('پردازشی انجام نمی‌شود'));
+});

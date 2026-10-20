@@ -93,7 +93,7 @@ void main(){
  moveObjectFromPlan(id,x,z){if(!this.model.locked||!Number.isFinite(x)||!Number.isFinite(z))return false;const mesh=this.items.find(m=>m.userData.id===id);if(!mesh)return false;const k=Math.max(.001,this.model.correction),yaw=this.model.layoutYaw,c=Math.cos(yaw),s=Math.sin(yaw),dx=(x-this.model.layoutOffset.x)/k,dz=(z-this.model.layoutOffset.z)/k;const safe=this.safeObjectMotion(mesh,{x:dx*c-dz*s,z:dx*s+dz*c});mesh.position.x=safe.x;mesh.position.z=safe.z;if([4,14].includes(mesh.userData.index))this.snapToSupport(mesh);else this.keepOnFloor(mesh);this.refreshAttachments();this.updateArtFloorHandle();this.changed();return true;}
 
  setMoveLayoutMode(value){this.moveLayoutMode=!!value;this.cancelGesture();this.onHint?.(this.moveLayoutMode?'برای حرکت کل چیدمان، نقطه‌ای از زمین را لمس کن و بکش.':'حالت جابه‌جایی چیدمان بسته شد.');return this.moveLayoutMode;}
- rotateLayout(degrees=15){this.model.layoutYaw+=degrees*Math.PI/180;this.syncSpatial();this.changed();}
+ rotateLayout(degrees=45){this.model.layoutYaw+=degrees*Math.PI/180;this.syncSpatial();this.changed();}
 
  setPlacementEnabled(value){this.placementEnabled=!!value;this.placementMarker&&(this.placementMarker.visible=this.placementEnabled&&this.model.locked&&!this.photoMode);return this.placementEnabled;}
 
@@ -342,7 +342,7 @@ void main(){
  remove(){const m=this.selected;if(!m)return;this.items=this.items.filter(x=>x!==m);for(const child of this.items)if(child.userData.attachment?.id===m.userData.id){child.userData.attachment=null;this.keepOnFloor(child);}this.root.remove(m);this.disposeObject(m);this.select(this.items[0]||null);}
  clear(){for(const m of this.items){this.root.remove(m);this.disposeObject(m);}this.items=[];this.selected=null;this.serial=0;this.changed();}
  disposeObject(object){object.traverse(o=>{o.geometry?.dispose();if(o.material){o.material.map?.dispose();o.material.dispose();}});}
- rotate(degrees){if(!this.selected)return;const mesh=this.selected;const desired=degrees===undefined?mesh.rotation.y+Math.PI/12:degrees*Math.PI/180;
+ rotate(degrees){if(!this.selected)return;const mesh=this.selected;const desired=degrees===undefined?mesh.rotation.y+Math.PI/4:degrees*Math.PI/180;
   mesh.rotation.y=this.safeObjectRotation(mesh,desired);
   this.keepOnFloor(mesh);this.refreshAttachments();this.changed();}
  color(color){if(this.selected){this.selected.material.color.set(color);this.changed();}}

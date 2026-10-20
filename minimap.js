@@ -5,13 +5,9 @@ export class LiveMiniMap {
  constructor(panel,getStudio){
   this.panel=panel;this.getStudio=getStudio;this.svg=panel.querySelector('svg');
   this.expanded=false;this.drag=null;this.bounds=null;
-  panel.querySelector('[data-map-expand]').onclick=()=>{
-   this.expanded=!this.expanded;panel.classList.toggle('expanded',this.expanded);
-   panel.querySelector('[data-map-expand]').textContent=this.expanded?'کوچک کردن':'بزرگ کردن';
-   this.render();
-  };
-  panel.querySelector('[data-map-left]').onclick=()=>{const s=getStudio();if(s?.selected)s.rotate(s.selected.rotation.y*180/Math.PI-15);};
-  panel.querySelector('[data-map-right]').onclick=()=>{const s=getStudio();if(s?.selected)s.rotate(s.selected.rotation.y*180/Math.PI+15);};
+  panel.querySelector('[data-map-expand]').onclick=()=>{this.setExpanded(!this.expanded);};
+  panel.querySelector('[data-map-left]').onclick=()=>{const s=getStudio();if(s?.selected)s.rotate(s.selected.rotation.y*180/Math.PI-45);};
+  panel.querySelector('[data-map-right]').onclick=()=>{const s=getStudio();if(s?.selected)s.rotate(s.selected.rotation.y*180/Math.PI+45);};
   this.angleInput=panel.querySelector('[data-map-angle]');
   this.angleInput.oninput=value=>{
    const studio=getStudio();
@@ -24,6 +20,15 @@ export class LiveMiniMap {
   for(const name of ['pointerup','pointercancel','lostpointercapture'])
    this.svg.addEventListener(name,()=>{this.drag=null;});
  }
+ setExpanded(value){
+  this.expanded=!!value;
+  this.panel.classList.toggle('expanded',this.expanded);
+  this.panel.querySelector('[data-map-expand]').textContent=this.expanded?'کوچک کردن':'بزرگ کردن';
+  this.svg.setAttribute('aria-label',this.expanded?'پلان بزرگ؛ آبجکت‌ها را لمس یا جابه‌جا کن':'نمای بالای زنده از تمام آبجکت‌ها');
+  this.drag=null;
+  this.render();
+ }
+ collapse(){if(this.expanded)this.setExpanded(false);}
  point(event){
   const matrix=this.svg.getScreenCTM();
   if(!matrix)return null;
@@ -32,7 +37,7 @@ export class LiveMiniMap {
   return {x:local.x/100,z:local.y/100};
  }
  start(event){
-  if(!this.expanded){this.expanded=true;this.panel.classList.add('expanded');this.panel.querySelector('[data-map-expand]').textContent='کوچک کردن';this.render();return;}
+  if(!this.expanded){this.setExpanded(true);return;}
   const target=event.target.closest('[data-object-id]');
   if(!target)return;
   const studio=this.getStudio();if(!studio)return;
