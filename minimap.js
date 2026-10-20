@@ -12,6 +12,13 @@ export class LiveMiniMap {
   };
   panel.querySelector('[data-map-left]').onclick=()=>{const s=getStudio();if(s?.selected)s.rotate(s.selected.rotation.y*180/Math.PI-15);};
   panel.querySelector('[data-map-right]').onclick=()=>{const s=getStudio();if(s?.selected)s.rotate(s.selected.rotation.y*180/Math.PI+15);};
+  this.angleInput=panel.querySelector('[data-map-angle]');
+  this.angleInput.oninput=value=>{
+   const studio=getStudio();
+   if(!studio?.selected)return;
+   const next=Number(this.angleInput.value);
+   if(Number.isFinite(next))studio.rotate(next);
+  };
   this.svg.addEventListener('pointerdown',event=>this.start(event));
   this.svg.addEventListener('pointermove',event=>this.move(event));
   for(const name of ['pointerup','pointercancel','lostpointercapture'])
@@ -64,18 +71,25 @@ export class LiveMiniMap {
   for(let z=Math.ceil(top);z<top+height;z++)grid+='<path d="M'+(left*100)+' '+(z*100)+'h'+(width*100)+'" stroke="#dad3c8" stroke-width="1"/>';
   const length=Math.hypot(a.x-b.x,a.z-b.z)/Math.max(.001,state.correction);
   let marks='<path d="M'+(a.x*100)+' '+(a.z*100)+' L'+(b.x*100)+' '+(b.z*100)+'" stroke="#4b827c" stroke-width="3" stroke-dasharray="8 5"/>';
-  for(const [letter,p] of [['A',a],['B',b]])marks+='<circle cx="'+(p.x*100)+'" cy="'+(p.z*100)+'" r="5" fill="#4b827c"/><text x="'+(p.x*100+8)+'" y="'+(p.z*100-9)+'" font-size="11" fill="#396d68">'+letter+'</text>';
+  for(const [letter,p] of [['A',a],['B',b]])marks+='<circle cx="'+(p.x*100)+'" cy="'+(p.z*100)+'" r="5" fill="#4b827c"/><text x="'+(p.x*100+8)+'" y="'+(p.z*100-9)+'" font-size="17" fill="#396d68">'+letter+'</text>';
   const objects=items.map(({mesh,x,z,w,d,angle})=>{
    const id=mesh.userData.id,index=mesh.userData.index,wall=index>=16&&index<=21;
    const isRug=index===7,selected=mesh===studio.selected;
    const color=selected?'#478a80':wall?'#a47b63':isRug?'#e2caa9':[0,1,3].includes(index)?'#bda691':'#879d8d';
    const caption=esc(mesh.userData.product.name);
-   const label=this.expanded?'<text text-anchor="middle" y="'+(-d*50-8)+'" font-size="10" fill="#655749" transform="rotate('+(-angle*180/Math.PI)+')">'+caption+' · '+Math.round(w*100)+'×'+Math.round(d*100)+'</text>':'';
+   const label=this.expanded?'<text text-anchor="middle" y="'+(-d*50-8)+'" font-size="16" fill="#655749" transform="rotate('+(-angle*180/Math.PI)+')">'+caption+' · '+Math.round(w*100)+'×'+Math.round(d*100)+'</text>':'';
    return '<g data-object-id="'+id+'" aria-label="'+caption+'" transform="translate('+(x*100)+' '+(z*100)+') rotate('+(angle*180/Math.PI)+')" style="cursor:pointer;opacity:'+(mesh.visible?'1':'.4')+'">'+
     '<rect x="'+(-w*50)+'" y="'+(-d*50)+'" width="'+(w*100)+'" height="'+Math.max(wall?6:4,d*100)+'" rx="'+(isRug?1:4)+'" fill="'+color+'" stroke="'+(selected?'#245b53':'#786b60')+'" stroke-width="'+(selected?3:1.6)+'"'+(mesh.visible?'':' stroke-dasharray="4 3"')+'/>'+label+'</g>';
   }).join('');
   this.svg.innerHTML='<rect x="'+(left*100)+'" y="'+(top*100)+'" width="'+(width*100)+'" height="'+(height*100)+'" fill="#f4efe7"/>'+grid+marks+objects;
   const measure=this.panel.querySelector('[data-map-measure]');
   if(measure)measure.textContent='A–B: '+(length*100).toLocaleString('fa-IR',{maximumFractionDigits:1})+' سانتی‌متر · '+items.length.toLocaleString('fa-IR')+' آبجکت';
+  const selected=studio.selected;
+  const angle=selected?Math.round(Math.atan2(Math.sin(selected.rotation.y),Math.cos(selected.rotation.y))*180/Math.PI/5)*5:0;
+  this.angleInput.value=String(angle);
+  this.angleInput.disabled=!selected;
+  for(const key of ['[data-map-left]','[data-map-right]'])this.panel.querySelector(key).disabled=!selected;
+  this.panel.querySelector('[data-map-angle-value]').textContent=angle.toLocaleString('fa-IR')+'°';
+  this.panel.querySelector('[data-map-selected]').textContent=selected?'انتخاب‌شده: '+selected.userData.product.name:'برای چرخش، یک آبجکت را در نقشه انتخاب کن';
  }
 }

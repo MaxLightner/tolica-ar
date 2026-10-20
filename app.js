@@ -1,13 +1,13 @@
-import {explainXR} from './xr.js?v=0.5.0';
+import {explainXR} from './xr.js?v=0.5.1';
 import {photos,savePhoto,removePhoto} from './storage.js';
-import {CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto} from './camera-capture.js?v=0.5.0';
-import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.5.0';
-import {allowedCapacities,layoutOptions,buildLayout,layoutSummary,layoutPreviewSvg} from './layout-templates.js?v=0.5.0';
-import {readDraft,saveDraft,clearDraft,listCustomLayouts,saveCustomLayout,overwriteCustomLayout,removeCustomLayout} from './layout-storage.js?v=0.5.0';
-import {ASSET_CATEGORIES,RUG_SIZE_PRESETS,isLamp,isSofa,isTable,isWallArt,variantsFor,categoryForIndex} from './asset-metadata.js?v=0.5.0';
-import {savedPlanSvg} from './saved-plan.js?v=0.5.0';
-import {LiveMiniMap} from './minimap.js?v=0.5.0';
-import {CUSHION_PRESETS} from './sofa-cushions.js?v=0.5.0';
+import {CAMERA_RATIOS,CAMERA_PHOTO_KIND,isCameraPhoto} from './camera-capture.js?v=0.5.1';
+import {RUG_STYLES,rugPreviewDataUrl} from './rug-textures.js?v=0.5.1';
+import {allowedCapacities,layoutOptions,buildLayout,layoutSummary,layoutPreviewSvg} from './layout-templates.js?v=0.5.1';
+import {readDraft,saveDraft,clearDraft,listCustomLayouts,saveCustomLayout,overwriteCustomLayout,removeCustomLayout} from './layout-storage.js?v=0.5.1';
+import {ASSET_CATEGORIES,RUG_SIZE_PRESETS,isLamp,isSofa,isTable,isWallArt,variantsFor,categoryForIndex} from './asset-metadata.js?v=0.5.1';
+import {savedPlanSvg} from './saved-plan.js?v=0.5.1';
+import {LiveMiniMap} from './minimap.js?v=0.5.1';
+import {CUSHION_PRESETS} from './sofa-cushions.js?v=0.5.1';
 const $=s=>document.querySelector(s),app=$('#app'),fa=n=>n.toLocaleString('fa-IR');
 let studio,Scene,palette,space='پذیرایی',layout='conversation',supported=false,routeVersion=0,photoURLs=[],savedItems=[],arReport=null,sceneMemory=null,arStarting=false,lastXRErrorReport='',activeSavedLayoutId=null;
 const minimap=new LiveMiniMap($('#arMiniMap'),()=>studio);
@@ -68,7 +68,7 @@ function heading(step,title,sub,back){return `<div class="page-heading"><div><sp
 async function full(){if(document.fullscreenElement){await document.exitFullscreen();return;}if(!document.documentElement.requestFullscreen){toast('مرورگر شما تمام‌صفحه را پشتیبانی نمی‌کند.');return;}try{await document.documentElement.requestFullscreen();}catch{toast('ورود به تمام‌صفحه ممکن نشد؛ می‌توانی ادامه بدهی.');}}
 $('#fullscreen').onclick=full;document.addEventListener('fullscreenchange',()=>$('#fullscreen').textContent=document.fullscreenElement?'خروج از تمام‌صفحه ↙':'تمام‌صفحه ⛶');
 async function support(){try{supported=!!(isSecureContext&&navigator.xr&&await navigator.xr.isSessionSupported('immersive-ar'));}catch{supported=false;}return supported;}
-async function loadScene(){if(!Scene){const m=await import('./scene.js?v=0.5.0');Scene=m.Studio;palette=m.palette;}}
+async function loadScene(){if(!Scene){const m=await import('./scene.js?v=0.5.1');Scene=m.Studio;palette=m.palette;}}
 let draftTimer=null;
 function currentSceneRecord(){
  if(!studio)return null;
@@ -119,7 +119,16 @@ async function render(){const version=++routeVersion;const route=location.hash.s
  app.innerHTML=`<section class="page layouts-page">
  ${heading('۰۲ / چیدمان', ['پذیرایی','ناهارخوری','آشپزخانه'].includes(space)?`چیدمان مناسب ${fa(peopleCount)} نفر را انتخاب کن`:`چیدمان ${space} را انتخاب کن`,
  `تمام پلان‌ها به آبجکت‌های واقعیِ مرحله AR متصل‌اند · ${styleChoice} · ${themes[themeIndex].name}`,'spaces')}
- <div class="layout-feed">${variants.map(({id,title,description},i)=>{
+ <div class="saved-section"><h3>چیدمان‌های من</h3><div class="saved-layout-grid">
+ ${listCustomLayouts().map(saved=>`<div class="saved-plan-card">
+   <button data-saved-layout="${saved.id}" class="saved-plan-open">
+    <div class="saved-plan-image">${savedPlanSvg(saved.scene)}</div><strong>${saved.name.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}</strong>
+    <small>${saved.room+' · '}چیدمان سفارشی</small></button>
+   <button class="saved-plan-delete" data-remove-layout="${saved.id}" aria-label="حذف چیدمان ذخیره‌شده">×</button>
+  </div>`).join('')||'<p class="saved-empty">هنوز چیدمانی ذخیره نکرده‌ای.</p>'}
+ </div></div>
+<section class="preset-layouts"><h3 class="layout-section-title">چیدمان‌های آماده <span>برای ${space}</span></h3>
+<div class="layout-feed">${variants.map(({id,title,description},i)=>{
   const scene=buildLayout({room:space,kind:id,capacity:peopleCount}),stats=layoutSummary(scene);
   const details=space==='پذیرایی'?`${fa(stats.seats)} جای نشستن · ${fa(stats.tables)} میز`:
    space==='آشپزخانه'||space==='ناهارخوری'?`${fa(stats.chairs)} صندلی · میز ${fa(peopleCount)} نفره`:
@@ -130,15 +139,9 @@ async function render(){const version=++routeVersion;const route=location.hash.s
    </button>`;
  }).join('')}
  <button class="start-blank" data-layout="empty"><span>＋</span><strong>چیدمان دلخواه من</strong><small>شروع با فضای خالی</small></button>
- <div class="saved-section"><h3>چیدمان‌های ذخیره‌شده</h3><div class="saved-layout-grid">
- ${listCustomLayouts().filter(x=>x.room===space).map(saved=>`<div class="saved-plan-card">
-   <button data-saved-layout="${saved.id}" class="saved-plan-open">
-    <div class="saved-plan-image">${savedPlanSvg(saved.scene)}</div><strong>${saved.name.replaceAll('<','&lt;')}</strong>
-    <small>${saved.capacity&&['پذیرایی','ناهارخوری','آشپزخانه'].includes(space)?fa(saved.capacity)+' نفر · ':''}چیدمان سفارشی</small></button>
-   <button class="saved-plan-delete" data-remove-layout="${saved.id}" aria-label="حذف چیدمان ذخیره‌شده">×</button>
-  </div>`).join('')||'<p class="saved-empty">هنوز چیدمانی ذخیره نکرده‌ای.</p>'}
- </div></div>
- </div></section>`;
+ 
+</div></section>
+</section>`;
  document.querySelectorAll('[data-layout]').forEach(btn=>btn.onclick=()=>{layout=btn.dataset.layout;sceneMemory=null;activeSavedLayoutId=null;previewEnabled=false;clearDraft();location.hash='studio';});
  document.querySelectorAll('[data-saved-layout]').forEach(btn=>btn.onclick=()=>{const data=listCustomLayouts().find(x=>x.id===btn.dataset.savedLayout);if(!data)return;loadSceneRecord(data);location.hash='studio';});
  document.querySelectorAll('[data-remove-layout]').forEach(btn=>btn.onclick=()=>{removeCustomLayout(btn.dataset.removeLayout);render();});return;}
@@ -162,32 +165,16 @@ async function render(){const version=++routeVersion;const route=location.hash.s
   studio.onHint=toast;
    studio.onLiveChange=()=>minimap.render();
    studio.onABPosition=point=>{const el=$('#abInline');if(!point||!studio?.session||studio.photoMode){el.hidden=true;return;}el.hidden=false;el.style.left=Math.max(72,Math.min(innerWidth-72,point.x))+'px';el.style.top=Math.max(88,Math.min(innerHeight-125,point.y))+'px';$('#abLengthButton').textContent='A—B · '+Math.round(studio.measurement().correctedCm).toLocaleString('fa-IR')+' cm ✎';};
-  let quickSmoothed=null,quickLastSelected=null;
-  studio.onSelectionScreen=position=>{
-   const quick=$('#objectQuick');if(!quick)return;
-   const selected=studio?.selected;
-   $('#quickPower').hidden=!selected||!isLamp(selected.userData.index);
-   if(selected&&isLamp(selected.userData.index))$('#quickPower').setAttribute('aria-pressed',String(!!selected.userData.lampOn));
-   if(!position||!selected||!studio?.session||studio.photoMode||!$('#arToolSheet').hidden||studio.placementEnabled){
-    quick.hidden=true;quickSmoothed=null;quickLastSelected=null;return;
-   }
-   const targetX=Math.max(50,Math.min(window.innerWidth-50,position.x+(position.x>window.innerWidth*.62?-76:76)));
-   const targetY=Math.max(125,Math.min(window.innerHeight-132,position.y));
-   if(selected!==quickLastSelected||!quickSmoothed){
-    quickSmoothed={x:targetX,y:targetY};quickLastSelected=selected;
-   }else{
-    const distance=Math.hypot(targetX-quickSmoothed.x,targetY-quickSmoothed.y);
-    if(distance>145){quickSmoothed.x=targetX;quickSmoothed.y=targetY;}
-    else{
-     const alpha=distance>35?.23:.11;
-     quickSmoothed.x+=(targetX-quickSmoothed.x)*alpha;
-     quickSmoothed.y+=(targetY-quickSmoothed.y)*alpha;
-    }
-   }
-   if(!quick.hidden&&Math.hypot(Number.parseFloat(quick.style.left)-quickSmoothed.x,Number.parseFloat(quick.style.top)-quickSmoothed.y)<1.5)return;
-   quick.hidden=false;
-   quick.style.left=Math.round(quickSmoothed.x)+'px';quick.style.top=Math.round(quickSmoothed.y)+'px';
-  };
+  studio.onSelectionScreen=()=>{
+    const quick=$('#objectQuick'),selected=studio?.selected;
+    if(!quick)return;
+    const show=!!selected&&!!studio.session&&studio.placed&&!studio.photoMode&&$('#arToolSheet').hidden&&!studio.placementEnabled;
+    quick.hidden=!show;
+    if(!show)return;
+    $('#quickProps').title=selected.userData.index===7?'تنظیمات فرش':'ویژگی‌های آبجکت';
+    $('#quickProps').setAttribute('aria-label',$('#quickProps').title);
+    updateLampPowerControl();
+   };
   studio.debugView.onUpdate=()=>{if(debugEnabled)refreshDebugPanel();};
   studio.setMeasureHandler((m,awaitSecond)=>$('#measureReadout').textContent=awaitSecond?'نقطه دوم را روی کف لمس کن':m===null?'نقطه اول را روی کف لمس کن':m.toFixed(2)+' متر');
  }catch(error){$('#viewport').textContent='محیط سه‌بعدی آماده نشد.';console.error(error);return;}
@@ -276,16 +263,13 @@ function showArSheet(mode){
    body.innerHTML=`<p class="feature-caption">نوع آباژور</p><div class="feature-options">${[6,14,15].map(id=>`<button data-lamp="${id}" class="${i===id?'selected':''}">${catalogImages[id][0]}</button>`).join('')}</div>`;
    body.querySelectorAll('[data-lamp]').forEach(btn=>btn.onclick=()=>{if(!studio.replaceSelected(+btn.dataset.lamp)){toast('فضای کافی برای این مدل وجود ندارد.');return;}closeArSheet();showArSheet('features');});
   }else if(i===7){
-   title.textContent='اندازه فرش';
-   const size=selected.userData.product.size;
-   body.innerHTML=`<p class="feature-caption">ابعاد فرش (متر)</p><div class="feature-options">${RUG_SIZE_PRESETS.map(p=>`<button data-rug-size="${p.id}" class="${Math.abs(size[0]-p.size[0])<.01&&Math.abs(size[2]-p.size[2])<.01?'selected':''}">${p.label}</button>`).join('')}</div><p class="sheet-tip">ابعاد با مقیاس واقعی اعمال می‌شوند؛ فرش می‌تواند زیر مبلمان قرار بگیرد.</p><button id="rugColorSwitch">انتخاب طرح و رنگ فرش ←</button>`;
-   body.querySelectorAll('[data-rug-size]').forEach(btn=>btn.onclick=()=>{
-    const preset=RUG_SIZE_PRESETS.find(p=>p.id===btn.dataset.rugSize);
-    if(preset&&studio.setRugSize(preset.size)){closeArSheet();showArSheet('features');}
-   });
-   $('#rugColorSwitch').onclick=()=>{closeArSheet();showArSheet('colors');};
-  }
-  else if(isTable(i)||isWallArt(i)){
+    title.textContent='تنظیمات فرش · ابعاد و طرح';
+    const size=selected.userData.product.size;
+    body.innerHTML=`<p class="feature-caption">ابعاد فرش (متر)</p><div class="feature-options rug-sizes">${RUG_SIZE_PRESETS.map(p=>`<button data-rug-size="${p.id}" class="${Math.abs(size[0]-p.size[0])<.01&&Math.abs(size[2]-p.size[2])<.01?'selected':''}">${p.label}</button>`).join('')}</div><p class="feature-caption">طرح و رنگ فرش</p><div class="rug-grid">${RUG_STYLES.map(r=>`<button data-rug="${r.id}" class="${selected.userData.rugStyle===r.id?'selected':''}"><img src="${rugPreviewDataUrl(r.id)}" alt="${r.name}"><span>${r.name}</span></button>`).join('')}</div><small class="sheet-tip">ابعاد واقعی و طرح فرش همراه چیدمان ذخیره می‌شوند.</small>`;
+    body.querySelectorAll('[data-rug-size]').forEach(btn=>btn.onclick=()=>{const preset=RUG_SIZE_PRESETS.find(p=>p.id===btn.dataset.rugSize);if(preset&&studio.setRugSize(preset.size)){closeArSheet();showArSheet('features');}else toast('برای این اندازه فرش فضای کافی نیست.');});
+    body.querySelectorAll('[data-rug]').forEach(btn=>btn.onclick=()=>{if(studio.setRugStyle(btn.dataset.rug))body.querySelectorAll('[data-rug]').forEach(b=>b.classList.toggle('selected',b===btn));});
+   }
+   else if(isTable(i)||isWallArt(i)){
    const variants=variantsFor(i);body.innerHTML=`<p class="feature-caption">اندازه و شکل مدل</p><div class="feature-options">${variants.map(id=>`<button data-variant="${id}" class="${i===id?'selected':''}">${catalogImages[id]?.[0]||'مدل'}</button>`).join('')}</div>${isWallArt(i)?'<label class="wall-art-upload">تصویر تابلو <input type="file" id="artImageFile" accept="image/jpeg,image/png,image/webp"></label><small class="sheet-tip">تصویر شخصی در همین دستگاه و همراه چیدمان ذخیره می‌شود.</small>':''}`;
    body.querySelectorAll('[data-variant]').forEach(btn=>btn.onclick=()=>{if(!studio.replaceSelected(+btn.dataset.variant)){toast('فضای کافی برای این مدل وجود ندارد.');return;}closeArSheet();showArSheet('features');});
     if(isWallArt(i))$('#artImageFile').onchange=async event=>{try{const file=event.target.files?.[0];if(!file)return;if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>8*1024*1024)throw Error('فایل تصویر معتبر نیست یا بیش از ۸ مگابایت است.');const picture=await createImageBitmap(file),ratio=selected.userData.product.size[0]/selected.userData.product.size[1],canvas=document.createElement('canvas');canvas.width=Math.min(640,Math.round(480*ratio));canvas.height=Math.round(canvas.width/ratio);const context=canvas.getContext('2d');if(!context)throw Error('دسترسی به Canvas ممکن نیست.');const scale=Math.max(canvas.width/picture.width,canvas.height/picture.height),w=picture.width*scale,h=picture.height*scale;context.drawImage(picture,(canvas.width-w)/2,(canvas.height-h)/2,w,h);picture.close?.();if(!studio.setWallArtImage(canvas.toDataURL('image/jpeg',.72),selected))throw Error('تصویر ذخیره نشد.');toast('تصویر تابلو عوض شد.');}catch(error){toast(error.message||'تغییر تصویر ممکن نشد.');}};
@@ -335,7 +319,20 @@ $('#quickCopy').onclick=()=>{if(studio?.items.length>=24){toast('حد آبجکت
 $('#quickChange').onclick=()=>showArSheet('replace');
 $('#quickProps').onclick=()=>showArSheet('features');
 $('#quickRotate').onclick=()=>studio?.rotate();
-$('#quickPower').onclick=()=>{if(!studio?.selected||!isLamp(studio.selected.userData.index))return;studio.setLampOn(!studio.selected.userData.lampOn);$('#quickPower').setAttribute('aria-pressed',String(studio.selected.userData.lampOn));};
+function updateLampPowerControl(){
+ const button=$('#quickPower'),mesh=studio?.selected;
+ if(!button)return;
+ const lamp=!!mesh&&isLamp(mesh.userData.index);
+ button.hidden=!lamp;
+ if(!lamp)return;
+ const on=!!mesh.userData.lampOn;
+ button.setAttribute('aria-pressed',String(on));
+ button.setAttribute('aria-label',on?'خاموش کردن آباژور':'روشن کردن آباژور');
+ button.title=on?'خاموش کردن آباژور':'روشن کردن آباژور';
+ button.classList.toggle('is-on',on);
+ button.innerHTML='<span aria-hidden="true">'+(on?'☀':'⏻')+'</span><small>'+(on?'روشن':'خاموش')+'</small>';
+}
+$('#quickPower').onclick=()=>{if(!studio?.selected||!isLamp(studio.selected.userData.index))return;const on=!studio.selected.userData.lampOn;if(studio.setLampOn(on))updateLampPowerControl();};
 $('#quickDelete').onclick=()=>{studio?.remove();};
 $('#arListTool').onclick=()=>showArSheet('objects');
 $('#arBottomSave').onclick=()=>showArSheet('save');

@@ -86,3 +86,36 @@ test('photo action uses WebXR camera frames without device screen sharing',()=>{
  const html=read('index.html');
  assert.ok(html.includes('WebXR Raw Camera Access'));
 });
+
+test('CHIDO keeps AR bottom dock and fixes contextual tools to the left',()=>{
+ const html=read('index.html'),js=read('app.js'),css=read('style.css');
+ for(const id of ['objectQuick','arDock','arBottomSave','arBottomOpen','quickPower','quickProps'])assert.ok(html.includes('id="'+id+'"'));
+ assert.ok(css.includes('#overlay.floor-ready .ar-dock{'));
+ assert.ok(css.includes('flex-direction:row!important'));
+ assert.ok(css.includes('#overlay .object-quick{'));
+ assert.ok(css.includes('left:max(7px'));
+ assert.doesNotMatch(js,/quickSmoothed/);
+ assert.ok(js.includes('function updateLampPowerControl()'));
+});
+test('rug dimensions and designs share one feature panel',()=>{
+ const js=read('app.js'),begin=js.indexOf("}else if(i===7){",js.indexOf("}else if(mode==='features')"));
+ const end=js.indexOf('else if(isTable(i)||isWallArt(i))',begin);
+ assert.ok(begin>0&&end>begin);
+ const rug=js.slice(begin,end);
+ for(const part of ['تنظیمات فرش','RUG_SIZE_PRESETS.map','RUG_STYLES.map','data-rug-size','data-rug'])assert.ok(rug.includes(part),part);
+});
+test('saved layouts precede presets and typography is larger',()=>{
+ const js=read('app.js'),css=read('style.css'),begin=js.indexOf("if(route==='layouts')");
+ assert.ok(js.indexOf('class="saved-section"',begin)<js.indexOf('class="layout-feed"',begin));
+ assert.ok(css.includes('.layouts-page .layout-feed{'));
+ assert.ok(css.includes('body small,body .step'));
+ assert.ok(css.includes('font-size:15px!important'));
+});
+test('expanded map can be collapsed from bottom right and rotates objects',()=>{
+ const html=read('index.html'),js=read('minimap.js'),css=read('style.css');
+ for(const id of ['data-map-left','data-map-right','data-map-angle','data-map-angle-value','data-map-expand'])assert.ok(html.includes(id));
+ assert.ok(js.includes('this.angleInput.oninput'));
+ assert.ok(js.includes('studio.rotate(next)'));
+ assert.ok(css.includes('.ar-minimap.expanded .map-title [data-map-expand]'));
+ assert.ok(css.includes('right:12px;bottom:10px'));
+});

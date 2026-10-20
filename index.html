@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f2eb"><meta name="description" content="چیدو؛ مبلمان را پیش از انتخاب، در خانهٔ خود ببینید."><title>چیدو — خانه، به سلیقهٔ تو</title><link rel="stylesheet" href="style.css?v=0.5.0"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f2eb"><meta name="description" content="چیدو؛ مبلمان را پیش از انتخاب، در خانهٔ خود ببینید."><title>چیدو — خانه، به سلیقهٔ تو</title><link rel="stylesheet" href="style.css?v=0.5.1"></head>
 <body>
 
 <header><a class="brand" href="#welcome" aria-label="خانه چیدو">CHIDO</a><nav><a href="#spaces">چیدمان</a><a href="#gallery">گالری من <span id="galleryCount">۰</span></a></nav><button class="quiet" id="fullscreen">تمام‌صفحه ⛶</button></header>
@@ -12,13 +12,13 @@
    <small>نوار آمادگی بر اساس Tracking و برخوردهای معتبر است؛ درصد پیشرفت واقعی ARCore نیست.</small>
  </div>
  <div id="objectQuick" class="object-quick" hidden aria-label="عملیات آبجکت انتخاب‌شده">
-  <button id="quickCopy" title="کپی" aria-label="کپی آبجکت">⧉</button>
-  <button id="quickChange" title="تعویض مدل" aria-label="تعویض مدل">⇄</button>
-  <button id="quickProps" title="ویژگی‌ها" aria-label="ویژگی‌های آبجکت">⚙</button>
+  <button id="quickCopy" title="کپی" aria-label="کپی آبجکت"><span aria-hidden="true">⧉</span><small>کپی</small></button>
+  <button id="quickChange" title="تعویض مدل" aria-label="تعویض مدل"><span aria-hidden="true">⇄</span><small>تعویض</small></button>
+  <button id="quickProps" title="ویژگی‌ها" aria-label="ویژگی‌های آبجکت"><span aria-hidden="true">⚙</span><small>ویژگی‌ها</small></button>
   <button id="quickPower" title="روشن و خاموش" aria-label="روشن یا خاموش کردن آباژور" hidden>⏻</button>
-  <button id="quickRotate" title="چرخش" aria-label="چرخش آبجکت">↻</button>
-  <button id="quickDelete" title="حذف" aria-label="حذف آبجکت">×</button>
- </div><section id="arDebugPanel" hidden><div class="debug-head"><strong>AR Diagnostics · v0.4.3</strong><button id="debugHide">×</button></div><pre id="debugReadout" dir="ltr">در انتظار اطلاعات WebXR…</pre><div class="debug-actions"><button id="debugSave">ذخیره JSON</button><button id="debugGithub">گزارش به GitHub</button></div><small>خطوط رنگی: صفحات شناسایی‌شده؛ نقطه‌های صورتی: Anchorها. در صورت نبود Plane Detection، وضعیت unavailable نشان داده می‌شود.</small></section><section id="cameraMode" class="camera-mode" hidden aria-label="دوربین چیدو">
+  <button id="quickRotate" title="چرخش" aria-label="چرخش آبجکت"><span aria-hidden="true">↻</span><small>چرخش</small></button>
+  <button id="quickDelete" title="حذف" aria-label="حذف آبجکت"><span aria-hidden="true">×</span><small>حذف</small></button>
+ </div><section id="arDebugPanel" hidden><div class="debug-head"><strong>AR Diagnostics · v0.5.1</strong><button id="debugHide">×</button></div><pre id="debugReadout" dir="ltr">در انتظار اطلاعات WebXR…</pre><div class="debug-actions"><button id="debugSave">ذخیره JSON</button><button id="debugGithub">گزارش به GitHub</button></div><small>خطوط رنگی: صفحات شناسایی‌شده؛ نقطه‌های صورتی: Anchorها. در صورت نبود Plane Detection، وضعیت unavailable نشان داده می‌شود.</small></section><section id="cameraMode" class="camera-mode" hidden aria-label="دوربین چیدو">
   <div class="camera-topbar">
     <button type="button" id="cameraClose" aria-label="بازگشت به چیدمان">×</button>
     <label class="camera-ratio-label" for="cameraRatio">نسبت تصویر
@@ -71,12 +71,22 @@
  <section id="arMiniMap" class="ar-minimap" hidden aria-label="پلان زنده دو بعدی چیدمان">
     <div class="map-title"><strong>نقشه چیدمان</strong><button type="button" data-map-expand>بزرگ کردن</button></div>
     <svg id="arMiniSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 250" role="img" aria-label="نمای بالا از تمام مبلمان و خط A B"></svg>
-    <div class="map-meta"><span data-map-measure>پلان در حال آماده‌سازی</span><div class="map-rotate"><button data-map-left type="button" aria-label="چرخش ۱۵ درجه به چپ">↺</button><button data-map-right type="button" aria-label="چرخش ۱۵ درجه به راست">↻</button></div></div>
+    <div class="map-meta">
+      <span data-map-measure>پلان در حال آماده‌سازی</span>
+      <div class="map-edit" aria-label="ویرایش آبجکت انتخاب‌شده روی پلان">
+       <span data-map-selected>برای ویرایش، آبجکت را انتخاب کن</span>
+       <div class="map-rotate">
+        <button data-map-left type="button" aria-label="چرخش ۱۵ درجه به چپ">↺ ۱۵°</button>
+        <label class="map-angle-label">زاویه <input data-map-angle type="range" min="-180" max="180" step="5" value="0" aria-label="چرخش دقیق آبجکت"><output data-map-angle-value>۰°</output></label>
+        <button data-map-right type="button" aria-label="چرخش ۱۵ درجه به راست">۱۵° ↻</button>
+       </div>
+      </div>
+     </div>
   </section>
   <div id="abInline" class="ab-inline" hidden><button id="abLengthButton" type="button">A—B ✎</button><form id="abLengthForm" hidden><label for="abLengthInput">طول واقعی (سانتی‌متر)</label><input type="number" id="abLengthInput" inputmode="decimal" min="100" max="1000" step="0.1" required><button type="submit">ثبت</button></form></div>
   <div id="arSettingsBin" hidden></div><div id="measureHint" hidden role="status"><span id="measureReadout">نقطه اول را روی کف لمس کن</span> <button id="measureClear">پاک کردن</button></div><div class="ar-bottom compact"><div id="arBottomActions" class="ar-bottom-actions" hidden><button id="arBottomSave">▣ ذخیره</button><button id="arBottomOpen">▤ چیدمان‌های من</button></div><button id="confirmFloor" class="primary" disabled>تثبیت این کف</button><div id="arEditControls" hidden><div id="arSelection"></div><div class="tools"><div id="selectedARTools"><button id="rotateAR">↻ ۱۵°</button><button id="colorAR">رنگ</button><button id="deleteAR">حذف</button></div><select id="arProduct" aria-label="نوع قطعه AR"><option value="0">کاناپه ۲۱۰</option><option value="1">تک‌نفره ۹۰</option><option value="2">میز ۱۱۰</option></select><button id="addAR">افزودن +</button></div></div><details id="arSettings" hidden><summary>کف و خط‌کش A—B</summary><div class="calibration-controls"><p id="arMeasurement" class="measurement"></p><label for="aractual">طول واقعی A—B (۱۰۰ تا ۱۰۰۰ سانتی‌متر)</label><div class="input-row"><input id="aractual" type="number" inputmode="decimal" min="100" max="1000" step="0.1" placeholder="مثلاً ۱۰۰"><button id="arcalibrate">کالیبره کن</button><button id="arresetScale">۱:۱</button></div><small>خط A—B برای اندازه‌گیری و کالیبراسیون است؛ جابه‌جایی و چرخش کل چیدمان ابزار مستقل دارد.</small><label class="xr-option"><input id="lightEnabled" type="checkbox" checked> نور محیط (در صورت پشتیبانی)</label><label class="xr-option"><input id="depthEnabled" type="checkbox" checked> اکلوژن عمق واقعی (در صورت پشتیبانی)</label></div><button id="rescanFloor">انتخاب مجدد کف</button></details><small id="diagnostics" dir="ltr">tracking — · floor SCANNING</small></div></div>
 <dialog id="photoHelp"><h2>یک قاب از خانه‌ات</h2><p>در مرورگرهای سازگار با WebXR Raw Camera Access، دکمه عکس فریم واقعی دوربین و مبلمان سه‌بعدی را درون چیدو ترکیب می‌کند.</p><p>اگر دسترسی داخلی دوربین روی دستگاه فعال نباشد، قابلیت کپچر AR ارائه نمی‌شود؛ عکس ساختگی یا بدون پس‌زمینه واقعی ذخیره نخواهد شد.</p><button id="closePhoto" class="primary">متوجه شدم</button></dialog>
 <dialog id="modeSheet"><button id="closeMode" class="sheet-close" aria-label="بستن">×</button><h2>چطور می‌خواهید ادامه دهید؟</h2><button class="mode-option" id="chooseAR"><span>واقعیت افزوده (AR)<small>قرار دادن باکس‌ها در فضای واقعی خانه</small></span><span class="mode-icon">♧</span></button><button class="mode-option" id="chooseSimple"><span>مدل ساده<small>بدون دوربین، روی پیش‌زمینهٔ ساده</small></span><span class="mode-icon">◇</span></button><p id="modeSupport">در حال بررسی سازگاری…</p></dialog>
 <dialog id="arError"><button id="closeARError" class="sheet-close" aria-label="بستن خطای AR">×</button><h2>چرا AR شروع نشد؟</h2><p id="arErrorMessage"></p><ol><li>لینک را از منوی سه‌نقطه با «باز کردن در Chrome» در تب اصلی مرورگر باز کن.</li><li>Chrome و Google Play Services for AR را از فروشگاه رسمی به‌روز کن و مجوز دوربین سایت را بررسی کن.</li></ol><details open><summary>جزئیات خطا برای بررسی</summary><pre id="arErrorDetails" dir="ltr"></pre></details><button id="basicAR" class="primary">آزمون سادهٔ AR</button><p>این آزمون پنل کنترل را الزامی نمی‌کند. اگر پنل ظاهر نشد، دوربین را به سمت کف بگیر؛ در این آزمون بدون پنل، کف پایدار خودکار تثبیت می‌شود؛ برای خروج، دکمهٔ بازگشت گوشی را بزن.</p><button id="copyARError">کپی گزارش خطا</button></dialog>
-<script type="module" src="app.js?v=0.5.0"></script></body></html>
+<script type="module" src="app.js?v=0.5.1"></script></body></html>
 
