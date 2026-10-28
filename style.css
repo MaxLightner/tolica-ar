@@ -714,6 +714,10 @@ header .quiet{font-size:14px!important;min-width:60px}
  background:transparent;border:1px solid #b6ac9e;color:#77695f
 }
 
+.welcome-bottom .quick-empty{background:#ffffffd9;border-style:dashed;color:#594f46;font-weight:600}
+.blank-layout-placeholder{display:grid;place-items:center;min-height:130px;border:2px dashed #b6aa9f;border-radius:16px;color:#827367;font-size:19px;font-weight:600}
+.chido-menu-sheet #chidoMenuBlank[data-confirm="yes"]{background:#7a493f;color:#fff;border-color:#7a493f}
+
 /* Preview fills the entire display; selected output ratio follows device orientation. */
 #overlay .camera-framing{
  --frame-ratio:0.75;--frame-inverse-ratio:1.333333;

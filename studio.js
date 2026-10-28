@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import {createFurniture,furnitureHit} from './furniture.js?v=0.5.4';
 import {createDecor} from './decor.js?v=0.5.4';
-import {createImportedModel,isImportedModel,isImportedNoShadow,applySofaFabric} from './imported-models.js?v=0.5.5';
+import {createImportedModel,isImportedModel,isImportedNoShadow,applySofaFabric} from './imported-models.js?v=0.5.7';
 import {applyRugStyle} from './rug-textures.js?v=0.5.4';
 import {MeasureTool} from './measure-tool.js?v=0.5.4';
 import {requestARSession,xrError} from './xr.js?v=0.5.4';
@@ -14,7 +14,7 @@ import {buildLayout} from './layout-templates.js?v=0.5.4';
 import {captureInternalAR,canCaptureCamera,InternalCaptureUnavailable} from './internal-camera-capture.js?v=0.5.4';
 import {assetMetadata,isLamp,isSofa,isTable,isWallArt} from './asset-metadata.js?v=0.5.4';
 import {installSofaCushions} from './sofa-cushions.js?v=0.5.4';
-import {isFloorSolid,footprint,footprintsOverlap,moveWithoutOverlap,rotateWithoutOverlap,moveGroupWithoutOverlap,rotateGroupWithoutOverlap,nearestFreeFootprint} from './collision.js?v=0.5.4';
+import {isFloorSolid,footprint,footprintsOverlap,moveWithoutOverlap,rotateWithoutOverlap,moveGroupWithoutOverlap,rotateGroupWithoutOverlap,nearestFreeFootprint} from './collision.js?v=0.5.7';
 export const palette=['#b6bca2','#d5c4ad','#b9c4c6','#ba9380'];
 const fa=n=>n.toLocaleString('fa-IR',{maximumFractionDigits:1});
 export class Studio{
@@ -26,7 +26,8 @@ export class Studio{
   this.effects=new EnvironmentEffects(this.scene,this.renderer);
   this.floorFrame=new THREE.Group();this.scene.add(this.floorFrame);this.root=new THREE.Group();this.floorFrame.add(this.root);
   this.whiteFloor=new THREE.Mesh(new THREE.PlaneGeometry(20,20),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide}));
-  this.whiteFloor.rotation.x=-Math.PI/2;this.whiteFloor.position.y=.001;this.whiteFloor.visible=false;this.floorFrame.add(this.whiteFloor);
+  // The translucent floor must composite *before* transparent contact shadows.
+  this.whiteFloor.rotation.x=-Math.PI/2;this.whiteFloor.position.y=.001;this.whiteFloor.renderOrder=-10;this.whiteFloor.visible=false;this.floorFrame.add(this.whiteFloor);
   this.placementEnabled=false;this.placementPoint=null;this.lastSelectionUI=0;this.moveLayoutMode=false;this.cameraBinding=null;this.pendingPhoto=null;
   this.measureTool=new MeasureTool(this.floorFrame,text=>this.makeLabel(text));this.measureTool.label.userData.updateText=text=>this.setLabel(this.measureTool.label,text);
   // The landing pin is on the already-locked virtual floor; it never changes ARCore tracking.
@@ -93,7 +94,7 @@ void main(){
  hitArtHandle(e,target){if(!this.artFloorHandle.visible)return false;const rect=target.getBoundingClientRect(),point=this.artFloorHandle.getWorldPosition(new THREE.Vector3()).project(this.activeCamera());if(point.z< -1||point.z>1)return false;return Math.hypot(rect.left+(point.x+1)*rect.width/2-e.clientX,rect.top+(1-point.y)*rect.height/2-e.clientY)<52;}
  rulerScreenPosition(){if(!this.model.locked||!this.tracking)return null;const p=this.rulerLabel.getWorldPosition(new THREE.Vector3()).project(this.activeCamera());if(p.z< -1||p.z>1||Math.abs(p.x)>1||Math.abs(p.y)>1)return null;const rect=document.querySelector('#arSurface')?.getBoundingClientRect();return rect?{x:rect.left+(p.x+1)*rect.width/2,y:rect.top+(1-p.y)*rect.height/2}:null;}
  planPosition(mesh){const k=this.model.correction,yaw=this.model.layoutYaw,c=Math.cos(yaw),s=Math.sin(yaw),o=this.model.layoutOffset;return {x:o.x+(mesh.position.x*c+mesh.position.z*s)*k,z:o.z+(-mesh.position.x*s+mesh.position.z*c)*k};}
- moveObjectFromPlan(id,x,z){if(!this.model.locked||!Number.isFinite(x)||!Number.isFinite(z))return false;const mesh=this.items.find(m=>m.userData.id===id);if(!mesh)return false;const k=Math.max(.001,this.model.correction),yaw=this.model.layoutYaw,c=Math.cos(yaw),s=Math.sin(yaw),dx=(x-this.model.layoutOffset.x)/k,dz=(z-this.model.layoutOffset.z)/k;const safe=this.safeObjectMotion(mesh,{x:dx*c-dz*s,z:dx*s+dz*c});mesh.position.x=safe.x;mesh.position.z=safe.z;if([4,14].includes(mesh.userData.index))this.snapToSupport(mesh);else this.keepOnFloor(mesh);this.refreshAttachments();this.updateArtFloorHandle();this.changed();return true;}
+ moveObjectFromPlan(id,x,z){if(!this.model.locked||!Number.isFinite(x)||!Number.isFinite(z))return false;const mesh=this.items.find(m=>m.userData.id===id);if(!mesh)return false;const k=Math.max(.001,this.model.correction),yaw=this.model.layoutYaw,c=Math.cos(yaw),s=Math.sin(yaw),dx=(x-this.model.layoutOffset.x)/k,dz=(z-this.model.layoutOffset.z)/k;const safe=this.safeObjectMotion(mesh,{x:dx*c-dz*s,z:dx*s+dz*c});mesh.position.x=safe.x;mesh.position.z=safe.z;if([4,14,28].includes(mesh.userData.index))this.snapToSupport(mesh);else this.keepOnFloor(mesh);this.refreshAttachments();this.updateArtFloorHandle();this.changed();return true;}
 
  setMoveLayoutMode(value){this.moveLayoutMode=!!value;this.cancelGesture();this.onHint?.(this.moveLayoutMode?'برای حرکت کل چیدمان، نقطه‌ای از زمین را لمس کن و بکش.':'حالت جابه‌جایی چیدمان بسته شد.');return this.moveLayoutMode;}
  rotateLayout(degrees=45){this.model.layoutYaw+=degrees*Math.PI/180;this.syncSpatial();this.changed();}
@@ -139,7 +140,11 @@ void main(){
    if(sofa)mesh.userData.attachment={id:sofa.userData.id,offset:[0,.56+h/2-sofa.userData.height/2,.20]};
   }
   this.refreshAttachments();if(isLamp(index)){this.initializeLamp(mesh,options.lampOn===true);if([14,28].includes(index)&&position)this.snapToSupport(mesh);}
-  if(index===28&&!position)this.snapToSupport(mesh);
+  if([14,28].includes(index)&&!position){
+   const table=this.items.find(m=>m!==mesh&&m.visible&&isTable(m.userData.index));
+   if(table){mesh.position.x=table.position.x;mesh.position.z=table.position.z;}
+   this.snapToSupport(mesh);
+  }
    if(isImportedModel(index)){
     mesh.userData.onModelReady=()=>{if(index===22)this.setSofaFabric(mesh.userData.fabric,mesh);if(isLamp(index))this.initializeLamp(mesh,mesh.userData.lampOn);this.changed();};
     mesh.userData.onModelError=()=>this.onHint?.('بارگذاری '+product.name+' ناموفق بود؛ اتصال مدل‌های کتابخانه را بررسی کن.');
@@ -274,20 +279,32 @@ void main(){
    const next=this.replaceSelected(7,{size});if(!next)return false;
    applyRugStyle(next,current);this.changed();return true;
   }
-  snapToSupport(mesh,allowed=[2,9,10,12,13]){
-  if(!mesh)return null;
-  const base=this.items.find(other=>{
-   if(other===mesh||!other.visible||!allowed.includes(other.userData.index))return false;
-   const point=mesh.position.clone().sub(other.position).applyAxisAngle(new THREE.Vector3(0,1,0),-other.rotation.y);
-   const surface=other.userData.asset?.supportSurfaces?.find(x=>x.kind==='horizontal');
-   return !!surface&&Math.abs(point.x)<surface.width/2&&Math.abs(point.z)<surface.depth/2;
-  });
-  if(!base){mesh.userData.attachment=null;mesh.position.y=mesh.userData.height/2;return null;}
-  const offset=mesh.position.clone().sub(base.position).applyAxisAngle(new THREE.Vector3(0,1,0),-base.rotation.y);
-  offset.y=base.userData.height/2+mesh.userData.height/2;
-  mesh.userData.attachment={id:base.userData.id,offset:offset.toArray()};
-  this.refreshAttachments();return base;
- }
+  snapToSupport(mesh){
+   if(!mesh)return null;
+   const turn=new THREE.Vector3(0,1,0),[w,,d]=mesh.userData.product.size;
+   let nearest=null;
+   for(const table of this.items){
+    if(table===mesh||!table.visible||!isTable(table.userData.index))continue;
+    const surface=table.userData.asset?.supportSurfaces?.find(x=>x.kind==='horizontal');
+    if(!surface)continue;
+    const point=mesh.position.clone().sub(table.position).applyAxisAngle(turn,-table.rotation.y);
+    const reachX=surface.width/2+Math.min(.07,w*.18),reachZ=surface.depth/2+Math.min(.07,d*.18);
+    if(Math.abs(point.x)>reachX||Math.abs(point.z)>reachZ)continue;
+    const distance=(point.x/reachX)**2+(point.z/reachZ)**2;
+    const top=table.position.y-table.userData.height/2+surface.height;
+    if(!nearest||distance<nearest.distance||(distance===nearest.distance&&top>nearest.top))nearest={table,surface,point,distance,top};
+   }
+   if(!nearest){mesh.userData.attachment=null;mesh.position.y=mesh.userData.height/2;return null;}
+   const {table,surface,point}=nearest;
+   // Keep the lamp/vase footprint entirely on the usable tabletop.
+   const offset=new THREE.Vector3(
+    THREE.MathUtils.clamp(point.x,-Math.max(0,(surface.width-w)/2),Math.max(0,(surface.width-w)/2)),
+    -table.userData.height/2+surface.height+mesh.userData.height/2,
+    THREE.MathUtils.clamp(point.z,-Math.max(0,(surface.depth-d)/2),Math.max(0,(surface.depth-d)/2))
+   );
+   mesh.userData.attachment={id:table.userData.id,offset:offset.toArray()};
+   this.refreshAttachments();return table;
+  }
  snapVase(mesh){if(mesh?.userData.index!==4)return;this.snapToSupport(mesh);}
  initializeLamp(mesh,on){
   mesh.userData.lampOn=!!on;
@@ -448,9 +465,11 @@ void main(){
    this.setRay(e,target);const hit=furnitureHit(this.ray,this.items.filter(x=>x.visible));if(!hit){this.select(null);this.gesture=null;return;}
    this.select(hit.object);
    if(isWallArt(hit.object.userData.index)){this.gesture=null;this.onHint?.('تابلو را از دستگیره سبز روی کف جابه‌جا کن.');return;}
-   if(isLamp(hit.object.userData.index)){
+   // Only *standing* lamps require grabbing the base; tabletop lamps move
+   // like vases and can be dragged from any visible part.
+   if(isLamp(hit.object.userData.index)&&![14,28].includes(hit.object.userData.index)){
     const localHit=hit.object.worldToLocal(hit.point.clone());
-    if(localHit.y> -hit.object.userData.height/2+(hit.object.userData.index===29?.16:.34)){this.gesture=null;this.onHint?.('آباژور را از پایه بگیر و جابه‌جا کن.');return;}
+    if(localHit.y> -hit.object.userData.height/2+(hit.object.userData.index===29?.25:.34)){this.gesture=null;this.onHint?.('آباژور را از پایه بگیر و جابه‌جا کن.');return;}
    }
    this.gesture={kind:'object',offset:hit.object.position.clone().sub(this.rootLocal(p))};
   }else if(this.points.size===2&&this.selected&&this.gesture?.kind==='object'){this.startTwist(target);}

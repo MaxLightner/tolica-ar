@@ -77,7 +77,9 @@ function configureMeshes(model,index){
   else if(object.material)object.material=object.material.clone();
   if(index===29&&/sphere/i.test(object.name)){
    const prior=Array.isArray(object.material)?object.material[0]:object.material;
-   object.material=new THREE.MeshPhysicalMaterial({color:0xffffff,roughness:.06,metalness:0,transmission:.96,thickness:.035,ior:1.45,transparent:true,opacity:.4,depthWrite:false,side:THREE.DoubleSide});
+   // Frosted, visibly solid glass: the previous 96% transmission made the
+   // globes almost disappear in AR against the live camera.
+   object.material=new THREE.MeshPhysicalMaterial({color:0xfff0d8,roughness:.2,metalness:0,transmission:.24,thickness:.08,ior:1.45,transparent:true,opacity:.94,depthWrite:false,side:THREE.DoubleSide,clearcoat:.35});
    prior?.dispose();
   }
   const materials=Array.isArray(object.material)?object.material:[object.material];
@@ -85,9 +87,9 @@ function configureMeshes(model,index){
    if(!material)continue;
    if(index===31){material.normalMap=null;material.bumpMap=null;material.normalScale?.set(0,0);material.bumpScale=0;material.needsUpdate=true;}
    if(index===29&&/sphere/i.test(object.name)){
-    material.color?.set(0xffffff);material.metalness=0;material.roughness=.08;
-    material.transmission=.95;material.thickness=.035;material.ior=1.45;
-    material.transparent=true;material.opacity=.34;material.depthWrite=false;material.needsUpdate=true;
+    material.color?.set(0xfff0d8);material.metalness=0;material.roughness=.2;
+    material.transmission=.24;material.thickness=.08;material.ior=1.45;
+    material.transparent=true;material.opacity=.94;material.depthWrite=false;material.needsUpdate=true;
    }
    material.userData.nativeEmissive=material.emissive?.clone();
    material.userData.nativeEmissiveIntensity=material.emissiveIntensity??0;
@@ -120,7 +122,10 @@ export function createImportedModel(index,size){
  const spec=IMPORTED_MODELS[index];
  if(!spec)throw Error('Unknown GLB catalog index '+index);
  // Invisible 12-triangle mesh also serves as the simple collision/picking proxy.
- const proxy=new THREE.Mesh(new THREE.BoxGeometry(...size),
+ // A larger invisible hit target makes the slim standing lamp easy to select
+ // without changing its true dimensions or its floor collision footprint.
+ const pickSize=index===29?[Math.max(.68,size[0]),size[1],Math.max(.68,size[2])]:size;
+ const proxy=new THREE.Mesh(new THREE.BoxGeometry(...pickSize),
   new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0,depthWrite:false}));
  proxy.name='chido-model-'+spec.file;
  proxy.userData.imported=true;

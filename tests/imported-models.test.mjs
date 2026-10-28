@@ -30,6 +30,7 @@ test('imported lights and rug use existing app power and collision exemptions',(
  assert.ok(isImportedLight(29));
  assert.equal(isFloorSolid(22),true);
  assert.equal(isFloorSolid(25),true);
+ assert.equal(isFloorSolid(28),false,'table lamp must overlap table footprint to snap onto its top');
  assert.equal(isFloorSolid(29),true);
  assert.equal(isFloorSolid(30),true);
  assert.equal(isFloorSolid(31),false);
