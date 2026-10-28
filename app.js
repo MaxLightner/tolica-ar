@@ -51,6 +51,18 @@ const catalogImages=[
  ['تابلو افقی بزرگ','<rect x="7" y="24" width="86" height="50" rx="2"/><path d="M14 65l25-25 18 12 29-17"/>'],
  ['تابلو عمودی بزرگ','<rect x="28" y="7" width="44" height="86" rx="2"/><path d="M33 80l12-28 15 11 8-29"/>'],
  ['تابلو چند تکه','<rect x="8" y="22" width="24" height="57"/><rect x="38" y="14" width="24" height="71"/><rect x="68" y="22" width="24" height="57"/>']];
+catalogImages.splice(22,10,
+ ['مبل سه‌نفره پارچه‌ای تیره',catalogImages[0][1]],
+ ['مبل دونفره پارچه‌ای تیره',catalogImages[0][1]],
+ ['مبل تک‌نفره پارچه‌ای تیره',catalogImages[1][1]],
+ ['میز جلو مبلی چوب و فلز',catalogImages[2][1]],
+ ['میز عسلی چوب و فلز',catalogImages[12][1]],
+ ['میز دکوری شیشه‌ای',catalogImages[12][1]],
+ ['آباژور رومیزی کریستالی',catalogImages[14][1]],
+ ['چراغ ایستاده فلزی',catalogImages[6][1]],
+ ['شمعدان دکوری',catalogImages[4][1]],
+ ['فرش پتینه طوسی',catalogImages[7][1]]
+);
 function objectIcon(index){return `<svg viewBox="0 0 100 100" class="object-icon" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">${catalogImages[index]?.[1]||''}</svg>`;}
 function planSketch(kind){return layoutPreviewSvg(buildLayout({room:space,kind,capacity:peopleCount}));}
 const sofa=`<path d="M83 184V143q0-15 17-15h123q17 0 17 15v41M83 158H64q-11 0-11 12v51h215v-51q0-12-12-12h-16M78 183h165v24H78zM64 221v15m192-15v15M159 133v46M79 190l-17-22m184 22 13-22"/>`;
@@ -243,7 +255,9 @@ function showArSheet(mode){
   body.querySelectorAll('[data-category]').forEach(btn=>btn.onclick=()=>populate(btn.dataset.category));
   populate(groups[0]?.id);
  }else if(mode==='colors'){
-  if(selected?.userData.index===7){
+  if(selected?.userData.index===31){
+    title.textContent='متریال فرش';body.innerHTML='<p class="sheet-tip">فرش واردشده تکسچر اختصاصی دارد و رنگ آن از فایل GLB خوانده می‌شود.</p>';
+   }else if(selected?.userData.index===7){
    title.textContent='طرح و رنگ فرش';
    body.innerHTML=`<div class="rug-grid">${RUG_STYLES.map(r=>`<button data-rug="${r.id}" class="${selected.userData.rugStyle===r.id?'selected':''}"><img src="${rugPreviewDataUrl(r.id)}" alt="${r.name}"><span>${r.name}</span></button>`).join('')}</div>`;
    body.querySelectorAll('[data-rug]').forEach(btn=>btn.onclick=()=>{studio.setRugStyle(btn.dataset.rug);body.querySelectorAll('[data-rug]').forEach(b=>b.classList.toggle('selected',b===btn));});
@@ -277,9 +291,11 @@ function showArSheet(mode){
    body.innerHTML=`<p class="feature-caption">تعداد نفرات و صندلی‌های همراه</p><div class="feature-options">${[2,4,6,8].map(n=>`<button data-seats="${n}" class="${selected.userData.capacity===n?'selected':''}">${fa(n)} نفره</button>`).join('')}</div>`;
    body.querySelectorAll('[data-seats]').forEach(btn=>btn.onclick=()=>{if(!studio.setDiningCapacity(+btn.dataset.seats)){toast('برای این ابعاد فضای کافی وجود ندارد.');return;}closeArSheet();showArSheet('features');});
   }else if(isLamp(i)){
-   body.innerHTML=`<p class="feature-caption">نوع آباژور</p><div class="feature-options">${[6,14,15].map(id=>`<button data-lamp="${id}" class="${i===id?'selected':''}">${catalogImages[id][0]}</button>`).join('')}</div>`;
+   body.innerHTML=`<p class="feature-caption">نوع آباژور</p><div class="feature-options">${[6,14,15,28,29].map(id=>`<button data-lamp="${id}" class="${i===id?'selected':''}">${catalogImages[id][0]}</button>`).join('')}</div>`;
    body.querySelectorAll('[data-lamp]').forEach(btn=>btn.onclick=()=>{if(!studio.replaceSelected(+btn.dataset.lamp)){toast('فضای کافی برای این مدل وجود ندارد.');return;}closeArSheet();showArSheet('features');});
-  }else if(i===7){
+  }else if(i===31){
+    body.innerHTML='<p class="sheet-tip">این فرش با ابعاد اصلی ۳۰۰ × ۲۰۰ سانتی‌متر و تکسچر GLB نمایش داده می‌شود. سایه و کالیژن ندارد.</p>';
+   }else if(i===7){
     title.textContent='تنظیمات فرش · ابعاد و طرح';
     const size=selected.userData.product.size;
     body.innerHTML=`<p class="feature-caption">ابعاد فرش (متر)</p><div class="feature-options rug-sizes">${RUG_SIZE_PRESETS.map(p=>`<button data-rug-size="${p.id}" class="${Math.abs(size[0]-p.size[0])<.01&&Math.abs(size[2]-p.size[2])<.01?'selected':''}">${p.label}</button>`).join('')}</div><p class="feature-caption">طرح و رنگ فرش</p><div class="rug-grid">${RUG_STYLES.map(r=>`<button data-rug="${r.id}" class="${selected.userData.rugStyle===r.id?'selected':''}"><img src="${rugPreviewDataUrl(r.id)}" alt="${r.name}"><span>${r.name}</span></button>`).join('')}</div><small class="sheet-tip">ابعاد واقعی و طرح فرش همراه چیدمان ذخیره می‌شوند.</small>`;
