@@ -1,12 +1,35 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,statSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,join} from 'node:path';
 import {allowedCapacities} from '../layout-templates.js';
 
 const root=dirname(dirname(fileURLToPath(import.meta.url)));
 const read=name=>readFileSync(join(root,name),'utf8');
+
+test('floor choice cannot trap immersive AR behind an HTML modal backdrop',()=>{
+ const html=read('index.html'),app=read('app.js'),css=read('style.css');
+ assert.match(html,/id="whiteFloorDialog"[^>]*hidden/);
+ assert.match(html,/role="dialog"/);
+ assert.doesNotMatch(app,/whiteFloorDialog'\)\.showModal\(/);
+ assert.doesNotMatch(app,/whiteFloorDialog'\)\.close\(/);
+ assert.match(app,/whiteFloorDialog'\)\.hidden=true/);
+ assert.match(css,/\.white-floor-prompt\{[^}]*pointer-events:auto/);
+});
+
+test('catalog uses pre-rendered small image files rather than a runtime WebGL context',()=>{
+ const js=read('app.js');
+ assert.match(js,/assets\/chido\/thumbs\/\$\{i\}\.jpg/);
+ assert.match(js,/loading="lazy" decoding="async"/);
+ assert.doesNotMatch(js,/catalogThumbnail\(/);
+ for(let i=0;i<32;i++){
+  const path=join(root,'assets','chido','thumbs',`${i}.jpg`);
+  assert.ok(statSync(path).size<12000,`Thumbnail ${i} should remain lightweight`);
+  const bytes=readFileSync(path);
+  assert.equal(bytes[0],0xff);assert.equal(bytes[1],0xd8);
+ }
+});
 
 test('unique DOM IDs: camera fallback has a single input and label',()=>{
  const html=read('index.html');

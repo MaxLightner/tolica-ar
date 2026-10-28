@@ -516,6 +516,9 @@ header .quiet{font-size:14px!important;min-width:60px}
 .sofa-fabric-grid span{font-size:14px}
 .floor-dialog-actions{display:flex;gap:10px;margin-top:18px}
 .floor-dialog-actions button{flex:1;padding:12px}
+.white-floor-prompt{position:absolute;z-index:100;top:50%;left:50%;transform:translate(-50%,-50%);width:min(340px,calc(100% - 30px));padding:22px;background:#f7f4ee;box-shadow:0 16px 45px #25251e8c;border:1px solid #d5c9bf;border-radius:20px;pointer-events:auto;color:#302f2b;direction:rtl}
+.white-floor-prompt h2{font-size:19px;margin:0 0 10px}
+.white-floor-prompt p{font-size:13px;line-height:1.8;margin:0;color:#70675f}
 .ar-sheet-head{font-size:19px!important;min-height:42px}
 .ar-sheet-head strong,#arSheetTitle{font-size:19px!important;line-height:1.5}
 .ar-sheet-head button{font-size:27px!important}
