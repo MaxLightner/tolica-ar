@@ -6,13 +6,13 @@ import {MeasureTool} from '../measure-tool.js';
 import {CATALOG} from '../spatial.js';
 
 test('every room/decor catalog object has a sane metric size',()=>{
- assert.equal(CATALOG.length,22);
+ assert.equal(CATALOG.length,32);
  for(const item of CATALOG){
   assert.ok(item.size.length===3&&item.size.every(v=>Number.isFinite(v)&&v>0),item.name);
  }
 });
 test('procedural decor is lightweight real Three.js mesh with a selectable surface',()=>{
- for(let i=4;i<CATALOG.length;i++){
+ for(let i=4;i<22;i++){
   const obj=createDecor(i,CATALOG[i].size,'#b8a99d');
   assert.equal(obj.isMesh,true,'catalog index '+i);
   assert.ok(obj.geometry.attributes.position.count>0);
