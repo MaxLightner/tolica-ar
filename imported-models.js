@@ -17,6 +17,46 @@ export const IMPORTED_MODELS=Object.freeze({
 });
 const loader=new GLTFLoader();
 const cache=new Map();
+export const SOFA_FABRICS=Object.freeze([
+ {id:'dark',label:'آبی تیره',file:'dark-fabric.jpg'},
+ {id:'creme',label:'کرم',file:'creme-fabric.jpg'},
+ {id:'gray',label:'خاکستری',file:'gray-fabric.jpg'}
+]);
+const textureLoader=new THREE.TextureLoader();
+const fabricCache=new Map();
+function loadFabric(file,repeat=4){
+ const key=file+':'+repeat;
+ if(!fabricCache.has(key)){
+  const texture=textureLoader.load(new URL('./assets/chido/'+file,import.meta.url).href);
+  texture.colorSpace=file==='sofa-ao.jpg'?THREE.NoColorSpace:THREE.SRGBColorSpace;
+  texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
+  texture.repeat.set(repeat,repeat);
+  texture.anisotropy=8;
+  fabricCache.set(key,texture);
+ }
+ return fabricCache.get(key);
+}
+export function applySofaFabric(model,id='dark'){
+ const fabric=SOFA_FABRICS.find(x=>x.id===id)||SOFA_FABRICS[0];
+ model.userData.fabric=fabric.id;
+ model.traverse(object=>{
+  if(!object.isMesh||object.userData.collisionProxy||object.name==='chido-contact-shadow')return;
+  if(!object.geometry.attributes.uv)return;
+  // AO uses the native, untiled UV; cloth alone repeats 4 times on each axis.
+  if(!object.geometry.attributes.uv2)object.geometry.setAttribute('uv2',object.geometry.attributes.uv.clone());
+  const materials=Array.isArray(object.material)?object.material:[object.material];
+  for(const material of materials){
+   if(!material?.isMeshStandardMaterial)continue;
+   material.map=loadFabric(fabric.file,4);
+   material.aoMap=loadFabric('sofa-ao.jpg',1);
+   material.aoMapIntensity=.9;
+   material.color.set(0xffffff);
+   material.roughness=.88;
+   material.metalness=0;
+   material.needsUpdate=true;
+  }
+ });
+}
 export const isImportedModel=index=>Object.hasOwn(IMPORTED_MODELS,index);
 export const isImportedLight=index=>index===28||index===29;
 export const isImportedNoShadow=index=>[28,29,30,31].includes(index);
@@ -27,7 +67,7 @@ const source=(file)=>{
  }
  return cache.get(file);
 };
-function configureMeshes(model){
+function configureMeshes(model,index){
  model.traverse(object=>{
   if(!object.isMesh)return;
   // The original material maps, transmission, alpha and PBR values remain intact.
@@ -35,9 +75,20 @@ function configureMeshes(model){
   object.geometry=object.geometry.clone();
   if(Array.isArray(object.material))object.material=object.material.map(m=>m.clone());
   else if(object.material)object.material=object.material.clone();
+  if(index===29&&/sphere/i.test(object.name)){
+   const prior=Array.isArray(object.material)?object.material[0]:object.material;
+   object.material=new THREE.MeshPhysicalMaterial({color:0xffffff,roughness:.06,metalness:0,transmission:.96,thickness:.035,ior:1.45,transparent:true,opacity:.4,depthWrite:false,side:THREE.DoubleSide});
+   prior?.dispose();
+  }
   const materials=Array.isArray(object.material)?object.material:[object.material];
   for(const material of materials){
    if(!material)continue;
+   if(index===31){material.normalMap=null;material.bumpMap=null;material.normalScale?.set(0,0);material.bumpScale=0;material.needsUpdate=true;}
+   if(index===29&&/sphere/i.test(object.name)){
+    material.color?.set(0xffffff);material.metalness=0;material.roughness=.08;
+    material.transmission=.95;material.thickness=.035;material.ior=1.45;
+    material.transparent=true;material.opacity=.34;material.depthWrite=false;material.needsUpdate=true;
+   }
    material.userData.nativeEmissive=material.emissive?.clone();
    material.userData.nativeEmissiveIntensity=material.emissiveIntensity??0;
    if(material.transparent || (material.transmission??0)>0){
@@ -78,16 +129,23 @@ export function createImportedModel(index,size){
  proxy.userData.loadPromise=source(spec.file).then(gltf=>{
   if(proxy.userData.disposed)return;
   const visual=gltf.scene.clone(true);
-  configureMeshes(visual);
+  configureMeshes(visual,index);
   visual.rotation.y=spec.yaw;
   visual.updateMatrixWorld(true);
-  const box=new THREE.Box3().setFromObject(visual);
+  let box=new THREE.Box3().setFromObject(visual);
+  if([28,29].includes(index)&&box.getSize(new THREE.Vector3()).y>0){
+   const uniformScale=size[1]/box.getSize(new THREE.Vector3()).y;
+   visual.scale.setScalar(uniformScale);
+   visual.updateMatrixWorld(true);
+   box=new THREE.Box3().setFromObject(visual);
+  }
   const center=box.getCenter(new THREE.Vector3());
   visual.position.x-=center.x;
   visual.position.z-=center.z;
   visual.position.y-=box.min.y+size[1]/2;
   visual.name='imported-visual';
   proxy.add(visual);
+  if(index===22)applySofaFabric(visual,proxy.userData.fabric||'dark');
   if(isImportedLight(index))addLampLight(proxy,index,size);
   proxy.userData.modelLoaded=true;
   proxy.userData.onModelReady?.();
