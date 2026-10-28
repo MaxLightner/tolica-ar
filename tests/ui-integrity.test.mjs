@@ -44,7 +44,7 @@ test('room capacities remain appropriate to room type',()=>{
 
 test('semantic features and three lamp variants are registered',()=>{
  const asset=read('asset-metadata.js'),studio=read('studio.js'),decor=read('decor.js');
- assert.match(asset,/indexes:\[4,6,14,15,7,5\]/);
+ assert.match(asset,/indexes:\[4,6,14,15,28,29,30,5\]/);
  assert.match(studio,/setDiningCapacity\(count\)/);
  assert.match(studio,/setSofaCushions\(preset\)/);
  for(const token of ['index===14','index===15','lamp-visible-glow']){
