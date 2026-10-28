@@ -1,0 +1,50 @@
+name: Import Chido GLB models
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/import-chido-models.yml
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download supplied GLB models from shared Drive
+        run: |
+          python -m pip install --quiet gdown==5.2.0
+          mkdir -p assets/chido
+          gdown --id 1dBKpaGP2d_W5zd8Dc7tK_JCNoGrumgFm -O assets/chido/sofaA1.glb
+          gdown --id 1ScNpckbU6rxNl6NHpPBT9AOp5tJoNnmx -O assets/chido/sofab1.glb
+          gdown --id 126Yx9A6zvpwonwYJIluJXMyGPhPfYx4V -O assets/chido/SofaC1.glb
+          gdown --id 1a4hgC1ZMbHkjVMAnqZtQzc1F2gWS98xZ -O assets/chido/desks2.glb
+          gdown --id 1wusgdTMvnCPw6EICdpzsjt3ng8ctbOy3 -O assets/chido/desks1.glb
+          gdown --id 1t73QlrJszhmpvwSvs2gePvCmRnOD_N2u -O assets/chido/minidesk1.glb
+          gdown --id 1n-m1yBRiTwphaOQVgeYcj7_Wwx9Bf3Sc -O assets/chido/lamp1.glb
+          gdown --id 1Of3fpvcRGusD0lBDNIHqKMuA2XXlvRuC -O assets/chido/Lamp2.glb
+          gdown --id 1OmAbsYmk6J6_ElcxhcGLK-L3EmMTe020 -O assets/chido/decor1.glb
+          gdown --id 1BLjrShG8lsY4P1Cd6kD8x28R-5OFvNX4 -O assets/chido/rug.glb
+      - name: Validate GLB file headers and sizes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          names = ['sofaA1','sofab1','SofaC1','desks2','desks1','minidesk1','lamp1','Lamp2','decor1','rug']
+          for name in names:
+              path = Path('assets/chido') / (name+'.glb')
+              data = path.read_bytes()
+              assert len(data) > 100000 and data[:4] == b'glTF', f'Invalid GLB: {path}'
+              print(f'Valid: {path} ({len(data)} bytes)')
+          PY
+      - name: Commit imported models
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/chido/*.glb
+          if ! git diff --cached --quiet; then
+            git commit -m 'Import ten scaled furniture and decor GLB models from Drive'
+            git push
+          fi
