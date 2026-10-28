@@ -17,8 +17,8 @@ function fixture(){
  s.floorFrame.add(s.root,s.ruler,s.floorNet);s.syncSpatial=()=>s.model.apply(s.floorFrame,s.root);
  return s;
 }
-test('all 22 assets have physical sizes and collision footprint metadata',()=>{
- assert.equal(CATALOG.length,22);
+test('all 32 assets have physical sizes and collision footprint metadata',()=>{
+ assert.equal(CATALOG.length,32);
  for(let i=0;i<CATALOG.length;i++){
   const m=assetMetadata(i);assert.ok(m.collision.size.every(v=>v>0));assert.ok(m.footprint2D.width>0);
  }
