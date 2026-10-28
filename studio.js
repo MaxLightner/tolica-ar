@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import {createFurniture,furnitureHit} from './furniture.js?v=0.5.0';
 import {createDecor} from './decor.js?v=0.5.0';
+import {createImportedModel,isImportedModel,isImportedNoShadow} from './imported-models.js?v=0.5.4';
 import {applyRugStyle} from './rug-textures.js?v=0.5.0';
 import {MeasureTool} from './measure-tool.js?v=0.5.0';
 import {requestARSession,xrError} from './xr.js?v=0.5.0';
@@ -115,7 +116,7 @@ void main(){
    this.rulerTicks.geometry.dispose();this.rulerTicks.geometry=new THREE.BufferGeometry().setFromPoints(pts);}
    this.updateArtFloorHandle();this.floorFrame.updateMatrixWorld(true);if(!this.lastLiveMapUpdate||performance.now()-this.lastLiveMapUpdate>65){this.lastLiveMapUpdate=performance.now();this.onLiveChange?.();}
  }
- add(index=this.serial%4,position,options={}){index=((index%CATALOG.length)+CATALOG.length)%CATALOG.length;const baseProduct=CATALOG[index],product=options.size?{...baseProduct,size:options.size}:baseProduct,id=++this.serial,[w,h,d]=product.size;const color=palette[index]||'#c6b7a3';const mesh=index<4?createFurniture(index,product.size,color,options.seats):createDecor(index,product.size,color);
+ add(index=this.serial%4,position,options={}){index=((index%CATALOG.length)+CATALOG.length)%CATALOG.length;const baseProduct=CATALOG[index],product=options.size?{...baseProduct,size:options.size}:baseProduct,id=++this.serial,[w,h,d]=product.size;const color=palette[index]||'#c6b7a3';const mesh=isImportedModel(index)?createImportedModel(index,product.size):index<4?createFurniture(index,product.size,color,options.seats):createDecor(index,product.size,color);
   const edges=new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry),new THREE.LineBasicMaterial({color:0x9f927f,transparent:true,opacity:.15,depthWrite:false}));mesh.add(edges);
   const dimensions=`${product.name} · ${product.size.map(v=>fa(v*100)).join(' × ')} cm`;const label=this.makeLabel(dimensions);label.position.y=h/2+.18;label.scale.set(1.5,.22,1);mesh.add(label);
   mesh.userData={...mesh.userData,id,index,height:h,price:product.price,product,edges,label,
@@ -125,7 +126,7 @@ void main(){
   mesh.position.y=isWallArt(index)?(position?.y>1?position.y:1.55):h/2;
   if(isSofa(index))installSofaCushions(mesh,options.cushionPreset||'none');
   // Transparent radial contact shadow: darkens the camera floor, not a black disc.
-  if(index!==7&&index!==5&&!isWallArt(index))this.addContactShadow(mesh,w,d,h,index===4?.31:isLamp(index)?.45:.68);
+  if(index!==7&&index!==5&&!isWallArt(index)&&!isLamp(index)&&!isImportedNoShadow(index))this.addContactShadow(mesh,w,d,h,index===4?.31:.68);
   this.root.add(mesh);this.items.push(mesh);
   if(!position&&index===4){
    const table=this.items.find(m=>m!==mesh&&isTable(m.userData.index));
@@ -135,7 +136,11 @@ void main(){
    const sofa=this.items.find(m=>m!==mesh&&(m.userData.index===0||m.userData.index===1));
    if(sofa)mesh.userData.attachment={id:sofa.userData.id,offset:[0,.56+h/2-sofa.userData.height/2,.20]};
   }
-  this.refreshAttachments();if(isLamp(index)){this.initializeLamp(mesh,options.lampOn===true);if(index===14&&position)this.snapToSupport(mesh);}
+  this.refreshAttachments();if(isLamp(index)){this.initializeLamp(mesh,options.lampOn===true);if([14,28].includes(index)&&position)this.snapToSupport(mesh);}
+   if(isImportedModel(index)){
+    mesh.userData.onModelReady=()=>{if(isLamp(index))this.initializeLamp(mesh,mesh.userData.lampOn);this.changed();};
+    mesh.userData.onModelError=()=>this.onHint?.('بارگذاری '+product.name+' ناموفق بود؛ اتصال مدل‌های کتابخانه را بررسی کن.');
+   }
   if(!options.silentSelect)this.select(mesh);this.setGuides();return mesh;
  }
  addContactShadow(mesh,w,d,h,opacity){
@@ -286,6 +291,13 @@ void main(){
   mesh.traverse(o=>{
    if(o.isPointLight){o.visible=!!on;o.intensity=on?2.2:0;o.distance=3.8;}
    if(o.name==='lamp-visible-glow'&&o.material)o.material.opacity=on?.46:0;
+   if(isImportedModel(mesh.userData.index)&&o.isMesh&&o!==mesh){
+    for(const material of Array.isArray(o.material)?o.material:[o.material]){
+     if(!material?.emissive)continue;
+     if(material.userData.nativeEmissive)material.emissive.copy(material.userData.nativeEmissive);
+     material.emissiveIntensity=on?(material.userData.nativeEmissiveIntensity||0):0;
+    }
+   }
   });
   if(mesh.material?.emissive)mesh.material.emissiveIntensity=on?2.3:.04;
  }
@@ -341,7 +353,7 @@ void main(){
 
  remove(){const m=this.selected;if(!m)return;this.items=this.items.filter(x=>x!==m);for(const child of this.items)if(child.userData.attachment?.id===m.userData.id){child.userData.attachment=null;this.keepOnFloor(child);}this.root.remove(m);this.disposeObject(m);this.select(this.items[0]||null);}
  clear(){for(const m of this.items){this.root.remove(m);this.disposeObject(m);}this.items=[];this.selected=null;this.serial=0;this.changed();}
- disposeObject(object){object.traverse(o=>{o.geometry?.dispose();if(o.material){o.material.map?.dispose();o.material.dispose();}});}
+ disposeObject(object){const imported=!!object.userData.imported;object.userData.disposed=true;object.traverse(o=>{o.geometry?.dispose();if(o.material){const materials=Array.isArray(o.material)?o.material:[o.material];for(const material of materials){if(!imported)material.map?.dispose();material.dispose();}}});}
  rotate(degrees){if(!this.selected)return;const mesh=this.selected;const desired=degrees===undefined?mesh.rotation.y+Math.PI/4:degrees*Math.PI/180;
   mesh.rotation.y=this.safeObjectRotation(mesh,desired);
   this.keepOnFloor(mesh);this.refreshAttachments();this.changed();}
@@ -428,7 +440,7 @@ void main(){
    if(isWallArt(hit.object.userData.index)){this.gesture=null;this.onHint?.('تابلو را از دستگیره سبز روی کف جابه‌جا کن.');return;}
    if(isLamp(hit.object.userData.index)){
     const localHit=hit.object.worldToLocal(hit.point.clone());
-    if(localHit.y> -hit.object.userData.height/2+.34){this.gesture=null;this.onHint?.('آباژور را از پایه بگیر و جابه‌جا کن.');return;}
+    if(localHit.y> -hit.object.userData.height/2+(hit.object.userData.index===29?.16:.34)){this.gesture=null;this.onHint?.('آباژور را از پایه بگیر و جابه‌جا کن.');return;}
    }
    this.gesture={kind:'object',offset:hit.object.position.clone().sub(this.rootLocal(p))};
   }else if(this.points.size===2&&this.selected&&this.gesture?.kind==='object'){this.startTwist(target);}
@@ -449,7 +461,7 @@ void main(){
     const desired={x:mesh.position.x+dx*factor,z:mesh.position.z+dz*factor};
     const safe=this.safeObjectMotion(mesh,desired);
     mesh.position.x=safe.x;mesh.position.z=safe.z;
-    if([4,14].includes(this.selected.userData.index)){this.snapToSupport(this.selected);}else{this.keepOnFloor(this.selected);if(this.selected.userData.attachment){const link=this.selected.userData.attachment,base=this.items.find(m=>m.userData.id===link.id);if(base){const offset=this.selected.position.clone().sub(base.position).applyAxisAngle(new THREE.Vector3(0,1,0),-base.rotation.y);link.offset[0]=offset.x;link.offset[2]=offset.z;}}this.refreshAttachments();}}
+    if([4,14,28].includes(this.selected.userData.index)){this.snapToSupport(this.selected);}else{this.keepOnFloor(this.selected);if(this.selected.userData.attachment){const link=this.selected.userData.attachment,base=this.items.find(m=>m.userData.id===link.id);if(base){const offset=this.selected.position.clone().sub(base.position).applyAxisAngle(new THREE.Vector3(0,1,0),-base.rotation.y);link.offset[0]=offset.x;link.offset[2]=offset.z;}}this.refreshAttachments();}}
   else if(g.kind==='A'){this.model.moveA(this.floorLocal(p).add(g.offset));this.syncSpatial();}
   else if(g.kind==='B'){this.model.moveB(this.floorLocal(p).add(g.offset));this.syncSpatial();}
   this.updateArtFloorHandle();this.onLiveChange?.();
